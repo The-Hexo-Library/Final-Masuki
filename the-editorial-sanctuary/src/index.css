@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Newsreader", serif;
+  --font-body: "Manrope", sans-serif;
+  --font-label: "Manrope", sans-serif;
+
+  --color-primary: #6b4f3b;
+  --color-primary-container: #86634a;
+  --color-on-primary: #ffffff;
+  --color-secondary: #8b735d;
+  --color-secondary-container: #efe4d8;
+  --color-on-secondary-container: #5d4a39;
+  --color-tertiary: #5a3f2b;
+  --color-tertiary-container: #74553b;
+  --color-on-tertiary-container: #e4c9ab;
+  --color-background: #faf5ef;
+  --color-on-background: #231b15;
+  --color-surface: #faf5ef;
+  --color-on-surface: #231b15;
+  --color-surface-variant: #e8ddd1;
+  --color-on-surface-variant: #5e5146;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f5eee6;
+  --color-surface-container: #efe6dc;
+  --color-surface-container-high: #e9dfd3;
+  --color-surface-container-highest: #e3d7c9;
+  --color-outline: #8a7a6b;
+  --color-outline-variant: #d0c2b2;
+
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Manrope:wght@200..800&display=swap');
+
+@layer base {
+  body {
+    @apply bg-background text-on-background font-body antialiased;
+  }
+}
+
+@layer utilities {
+  .book-shadow {
+    box-shadow: 0 20px 40px rgba(28, 28, 25, 0.08);
+  }
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-xl;
+  }
+  .primary-gradient {
+    background: linear-gradient(135deg, #6b4f3b 0%, #86634a 100%);
+  }
+}

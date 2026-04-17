@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find src:*)",
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)",
+      "Bash(npx tsc:*)",
+      "Bash(grep -r \"from ''../../services/booksService''\" src/features/home/HomePage.tsx src/features/catalog/CatalogPage.tsx)",
+      "Bash(npx vite:*)",
+      "Bash(npm list:*)",
+      "Bash(npm install:*)",
+      "Bash(grep:*)"
+    ]
+  }
+}

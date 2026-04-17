@@ -1,0 +1,140 @@
+TEAM CONTRIBUTION REPORT
+Project: Masuki Books (Frontend + Backend + Database)
+Team Size: 4 Members
+Members: A, B, C, D
+
+============================================================
+1) PROJECT SPLIT OVERVIEW
+============================================================
+To execute the project efficiently, responsibilities were divided into four clear parts:
+- Part 1: UI/UX Design and User Experience Flow (Member A)
+- Part 2: Frontend Development and Client-Side Logic (Member B)
+- Part 3: Backend API and Business Logic Development (Member C)
+- Part 4: Database, Data Integrity, and System Reliability (Member D)
+
+This split ensured parallel progress while maintaining integration between frontend, backend, and data layers.
+
+============================================================
+2) MEMBER-WISE CONTRIBUTION DETAILS
+============================================================
+
+MEMBER A (UI/UX Developer + Frontend Developer)
+Role Focus:
+- User interface planning, page-level experience design, and usability improvements.
+
+Key Contributions:
+1. Improved visual presentation and content readability
+   - Ensured full book titles are visible in the UI.
+   - Improved display behavior for book cards and content blocks.
+
+2. Book cover experience enhancement
+   - Designed fallback visual behavior so books without covers still show proper generated cover visuals.
+   - Helped maintain consistency in catalog appearance.
+
+3. Navigation and interaction improvements
+   - Updated floating menu behavior and page access flow.
+   - Added profile-page entry flow through person icon navigation.
+
+4. UX feedback quality
+   - Defined user-facing feedback expectations for actions like cart add/remove and wishlist movement.
+
+Deliverable Ownership:
+- UI flow and experience consistency across Home, Cart, Wishlist, and Profile interactions.
+
+------------------------------------------------------------
+
+MEMBER B (UI/UX Developer + Frontend Developer)
+Role Focus:
+- Frontend implementation, state handling, and interaction logic in React/TypeScript.
+
+Key Contributions:
+1. Cart notifications and duplicate handling
+   - Implemented "Item added to cart" feedback.
+   - Implemented duplicate prevention with "Item already in cart" feedback.
+   - Added auto-clearing message logic for better UX.
+
+2. Wishlist and cart interaction logic
+   - Implemented move-to-wishlist and move-back-to-cart behavior.
+   - Improved cancel/remove behavior in wishlist/cart flow.
+
+3. Session and navigation persistence behavior
+   - Migrated authentication persistence from localStorage to sessionStorage.
+   - Ensured fresh login on new browser session.
+   - Preserved active page on refresh within same session.
+
+4. Frontend reliability fixes
+   - Added optimistic UI updates and synchronization logic to avoid stale cart states.
+   - Implemented filtering logic to prevent wrongly resurfacing items during refetch.
+
+Deliverable Ownership:
+- Core frontend logic for cart, wishlist, profile, notifications, and route/session persistence.
+
+------------------------------------------------------------
+
+MEMBER C (Backend Developer)
+Role Focus:
+- Spring Boot service/API behavior and business-rule correctness.
+
+Key Contributions:
+1. Cart API and deletion correctness
+   - Diagnosed root cause of cart item reappearance issue from backend transaction behavior.
+   - Applied transactional fix in cart removal service logic to ensure proper DB commit.
+
+2. Service-layer flow stabilization
+   - Validated backend response consistency for cart operations.
+   - Supported correct synchronization semantics for frontend refetch operations.
+
+3. Backend integration support
+   - Aligned API behavior with frontend requirements for add/remove and duplicate checks.
+   - Helped maintain expected success/error response contract for client-side messages.
+
+4. Deployment/version control handling (backend)
+   - Prepared and pushed backend repository updates to team branch.
+
+Deliverable Ownership:
+- Correct and reliable cart-related business logic and API-side state persistence.
+
+------------------------------------------------------------
+
+MEMBER D (Database + Backend Support)
+Role Focus:
+- Data layer integrity, repository behavior, and end-to-end persistence reliability.
+
+Key Contributions:
+1. Data persistence reliability
+   - Verified that deletion operations are correctly persisted and not only removed in memory.
+   - Supported transaction-bound data consistency for cart-item removal lifecycle.
+
+2. Repository/data-model support
+   - Assisted with repository and service interactions to keep entity relationships consistent.
+   - Reviewed backend data flow impact on user cart/library behavior.
+
+3. Backend-database coordination
+   - Helped coordinate backend changes with database expectations for cart/order/library modules.
+   - Supported compatibility with existing schema and runtime behavior.
+
+4. Deployment/version control handling (data/backend support)
+   - Contributed to code synchronization, branch consistency, and release readiness.
+
+Deliverable Ownership:
+- Database consistency and persistence assurance across backend operations.
+
+============================================================
+3) COLLABORATION OUTCOME
+============================================================
+As a team, we delivered the following integrated outcomes:
+- Better UI readability and improved user experience.
+- Correct cart/wishlist interaction with clear user feedback messages.
+- Session-aware login behavior and refresh-safe page persistence.
+- Backend transactional correctness for cart deletion (no reappearing deleted items).
+- Frontend and backend changes prepared and pushed to branch for delivery.
+
+============================================================
+4) FINAL TEAM STRUCTURE SUMMARY
+============================================================
+- A: UI/UX design leadership + user experience refinement.
+- B: Frontend feature implementation + client-side logic.
+- C: Backend API/service logic + bug fixes.
+- D: Database integrity + backend-data consistency support.
+
+End of Report

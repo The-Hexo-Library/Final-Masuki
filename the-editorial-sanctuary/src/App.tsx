@@ -1,0 +1,3970 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { 
+  Search, 
+  ShoppingCart, 
+  User, 
+  
+  ArrowRight, 
+  ArrowRightLeft, 
+  BookOpen, 
+  History, 
+  Highlighter, 
+  Globe, 
+  Mail, 
+  Star,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  LayoutGrid,
+  List as ListIcon,
+  X,
+  Eye,
+  EyeOff,
+  LogOut,
+  Pencil,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from './hooks/useAuth';
+import { useFetch } from './hooks/useFetch';
+import { usePaginationState } from './hooks/usePaginationState';
+import {
+  addCartItem,
+  activateUserSubscription,
+  createAdminCategory,
+  createAdminBook,
+  createAdminSubscriptionPlan,
+  deleteAdminPublicLibrary,
+  deleteAdminBook,
+  getAdminOrdersPaged,
+  getAdminPublicLibrary,
+  fetchMergedPublicCatalog,
+  getMySubscriptionStatus,
+  getAdminBooksPaged,
+  getCart,
+  getStoredUser,
+  getUserCategories,
+  getUserLibraryPage,
+  getSubscriptionPlansPublic,
+  postCheckout,
+  postSubscribe,
+  removeCartItem,
+  upsertAdminPublicLibrary,
+  updateAdminOrderStatus,
+  updateAdminBook,
+  uploadAdminBookFile,
+  updateCartItemQuantity,
+  type AdminOrderRow,
+  type CategoryRow,
+  type CartRow,
+  type LibraryRow,
+  type PagedResult,
+  type ProductRow,
+  type SubscriptionStatusRow,
+} from './services/api';
+import { subscribeAppErrors } from './services/errorBus';
+import type { AppPage as Page } from './types/navigation';
+import FloatingMenu from './components/FloatingMenu';
+
+const ReaderPageLazy = lazy(() => import('./pages/ReaderPage'));
+import type { UiBook as Book } from './services/uiMappers';
+import {
+  cartItemToUiBook,
+  formatMoney,
+  libraryRowToUiBook,
+  productRowToVaultBook,
+  publicRowToUiBook,
+  subscriptionRowToUiPlan,
+  type UiSubscriptionPlan,
+} from './services/uiMappers';
+
+const PUBLIC_PAGE_SIZE = 8;
+const SAVED_WISHLIST_STORAGE_KEY = 'masuki_saved_wishlist';
+const LAST_PAGE_STORAGE_KEY = 'masuki_last_page';
+const ADMIN_STATS_REFRESH_MS = 15_000;
+const ORDER_ACTIVITY_EVENT = 'masuki:orders-updated';
+
+const ALL_APP_PAGES: Page[] = [
+  'landing',
+  'public-library',
+  'profile',
+  'personal-library',
+  'wishlist',
+  'subscription',
+  'checkout',
+  'login',
+  'admin',
+  'admin-add-book',
+  'admin-edit-book',
+  'reader',
+  'terms-of-service',
+  'privacy-policy',
+  'archive-ethics',
+  'contact-support',
+  'help-center',
+];
+
+function getInitialPage(): Page {
+  try {
+    const saved = sessionStorage.getItem(LAST_PAGE_STORAGE_KEY);
+    if (saved && (ALL_APP_PAGES as string[]).includes(saved)) {
+      return saved as Page;
+    }
+  } catch {
+    // ignore storage access errors
+  }
+  return 'landing';
+}
+
+function generateDraftSku(): string {
+  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `SKU-${Date.now()}-${suffix}`;
+}
+
+function isDuplicateSkuError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return message.includes('duplicate key value') && message.includes('(sku)=');
+}
+
+function triggerLocalFileDownload(file: File): void {
+  const objectUrl = URL.createObjectURL(file);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = file.name || 'book-file.pdf';
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(objectUrl);
+}
+
+/** Compact page labels for existing pagination rows (logic only). */
+function compactPaginationSlots(
+  totalPages: number,
+  current1Based: number
+): (number | '…')[] {
+  const ell = '…' as const;
+  const tp = Math.max(1, totalPages);
+  const c = Math.min(Math.max(1, current1Based), tp);
+  if (tp <= 5) return Array.from({ length: tp }, (_, i) => i + 1);
+  if (c <= 3) return [1, 2, 3, ell, tp];
+  if (c >= tp - 2) return [1, ell, tp - 2, tp - 1, tp];
+  return [1, ell, c - 1, c, c + 1];
+}
+
+function parseCurrencyAmount(value: string | undefined): number {
+  if (!value) return 0;
+  const cleaned = value.replace(/[^0-9.-]+/g, '');
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+// --- Components ---
+
+const Navbar = ({
+  currentPage,
+  setPage,
+  isAuthenticated,
+  isAdmin,
+  onLogout,
+}: {
+  currentPage: Page;
+  setPage: (p: Page) => void;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  onLogout: () => void;
+}) => (
+  <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-outline-variant/15">
+    <div className="max-w-screen-2xl mx-auto px-8 py-4 flex justify-between items-center">
+      <div className="flex items-center gap-12">
+        <span 
+          className="text-2xl font-headline italic text-primary cursor-pointer"
+          onClick={() => setPage('landing')}
+        >
+          Masuki Books
+        </span>
+        {isAuthenticated ? (
+          <div className="hidden md:flex gap-8 items-center">
+            {(isAdmin
+              ? [
+                  { id: 'admin', label: 'Admin Vault' },
+                  { id: 'admin-add-book', label: 'Add Books' },
+                  { id: 'public-library', label: 'Public Library' },
+                  { id: 'personal-library', label: 'User Stats' },
+                ]
+              : [
+                  { id: 'public-library', label: 'Public Library' },
+                  { id: 'personal-library', label: 'Personal Library' },
+                  { id: 'wishlist', label: 'Wishlist' },
+                ]
+            ).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setPage(item.id as Page)}
+                className={`text-sm font-medium transition-all duration-200 pb-1 border-b-2 ${
+                  currentPage === item.id 
+                    ? 'text-primary border-primary font-bold' 
+                    : 'text-on-surface-variant border-transparent hover:text-primary'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-6">
+        <div className="relative hidden sm:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant w-4 h-4" />
+          <input 
+            type="text" 
+            placeholder="Search the archive..." 
+            className="bg-surface-container-highest border-none rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary w-64 outline-none"
+          />
+        </div>
+        <div className="flex gap-4">
+          {isAuthenticated && !isAdmin ? (
+            <button className="text-primary hover:opacity-80 transition-opacity" onClick={() => setPage('wishlist')} aria-label="Open wishlist">
+              <ShoppingCart className="w-5 h-5" />
+            </button>
+          ) : null}
+          {isAuthenticated ? (
+            <>
+              <button
+                className="text-primary hover:opacity-80 transition-opacity"
+                onClick={() => setPage(isAdmin ? 'personal-library' : 'profile')}
+                aria-label={isAdmin ? 'Open user stats' : 'Open profile'}
+              >
+                <User className="w-5 h-5" />
+              </button>
+              <button
+                className="text-primary hover:opacity-80 transition-opacity"
+                onClick={onLogout}
+                aria-label="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </>
+          ) : (
+            <button className="text-primary hover:opacity-80 transition-opacity" onClick={() => setPage('login')} aria-label="Login">
+              <User className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  </nav>
+);
+
+const AdminUserStats = ({
+  orders,
+}: {
+  orders: AdminOrderRow[];
+}) => {
+  const safeOrders = orders ?? [];
+
+  const purchaseRows = useMemo(() => {
+    type PurchaseRow = {
+      orderId: string;
+      orderNumber: string;
+      buyer: string;
+      buyerRef: string;
+      book: string;
+      purchasedAt: string;
+      status: string;
+      amountLabel: string;
+    };
+
+    const out: PurchaseRow[] = [];
+
+    for (const order of safeOrders) {
+      const rawUser = order.user ?? {};
+      const firstName = rawUser.firstName || order.userFirstName || '';
+      const lastName = rawUser.lastName || order.userLastName || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      const buyer =
+        fullName ||
+        order.userName ||
+        order.userEmail ||
+        order.guestEmail ||
+        rawUser.email ||
+        order.userEmail ||
+        (order.userId || rawUser.userId ? `User ${String(order.userId ?? rawUser.userId).slice(0, 8)}` : 'Unknown user');
+      const buyerRef = order.userId ?? rawUser.userId ?? order.guestEmail ?? 'N/A';
+
+      const amount = Number(order.totalAmount ?? 0);
+      const amountLabel = Number.isFinite(amount) ? formatMoney(amount) : '';
+      const purchasedAt = order.createdAt
+        ? new Date(order.createdAt).toLocaleString()
+        : 'Unknown time';
+
+      const items = Array.isArray(order.items) ? order.items : [];
+      if (items.length > 0) {
+        for (const item of items) {
+          out.push({
+            orderId: order.orderId,
+            orderNumber: order.orderNumber ?? String(order.orderId).slice(0, 8),
+            buyer,
+            buyerRef,
+            book: item.productTitle?.trim() || item.productId || 'Unknown book',
+            purchasedAt,
+            status: order.status ?? 'unknown',
+            amountLabel,
+          });
+        }
+      } else {
+        out.push({
+          orderId: order.orderId,
+          orderNumber: order.orderNumber ?? String(order.orderId).slice(0, 8),
+          buyer,
+          buyerRef,
+          book: 'Book details unavailable',
+          purchasedAt,
+          status: order.status ?? 'unknown',
+          amountLabel,
+        });
+      }
+    }
+
+    return out.sort((a, b) => new Date(b.purchasedAt).getTime() - new Date(a.purchasedAt).getTime());
+  }, [safeOrders]);
+
+  const uniqueBuyers = useMemo(
+    () => new Set(purchaseRows.map((r) => r.buyerRef)).size,
+    [purchaseRows]
+  );
+
+  return (
+    <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-10">
+      <div className="space-y-4">
+        <h1 className="font-headline text-6xl text-primary italic">User Purchase Stats</h1>
+        <p className="text-lg text-on-surface-variant max-w-[70ch]">
+          Track who purchased which book and when. This replaces the private library view for admins.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-6">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Purchase Records</p>
+          <p className="mt-2 font-headline text-4xl text-primary">{purchaseRows.length}</p>
+        </div>
+        <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-6">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Unique Buyers</p>
+          <p className="mt-2 font-headline text-4xl text-primary">{uniqueBuyers}</p>
+        </div>
+        <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-6">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Orders Loaded</p>
+          <p className="mt-2 font-headline text-4xl text-primary">{safeOrders.length}</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl overflow-hidden border border-outline-variant/15">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-surface-container-low text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+              <th className="px-6 py-4">Buyer</th>
+              <th className="px-6 py-4">Book</th>
+              <th className="px-6 py-4">Purchased At</th>
+              <th className="px-6 py-4">Order</th>
+              <th className="px-6 py-4">Status</th>
+              <th className="px-6 py-4 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-outline-variant/15">
+            {purchaseRows.map((row) => (
+              <tr key={`${row.orderId}-${row.book}`} className="hover:bg-surface-container-low/50 transition-colors">
+                <td className="px-6 py-4">
+                  <p className="text-sm font-medium text-primary">{row.buyer}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{row.buyerRef}</p>
+                </td>
+                <td className="px-6 py-4 text-sm text-on-surface">{row.book}</td>
+                <td className="px-6 py-4 text-sm text-on-surface-variant">{row.purchasedAt}</td>
+                <td className="px-6 py-4 text-sm text-on-surface-variant">#{row.orderNumber}</td>
+                <td className="px-6 py-4">
+                  <span className="rounded-full bg-surface-container-high px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    {row.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right text-sm text-on-surface-variant">{row.amountLabel || '-'}</td>
+              </tr>
+            ))}
+            {purchaseRows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-8 text-center text-sm text-on-surface-variant">
+                  No admin order records found yet.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const Footer = ({
+  onNavigate,
+  isAuthenticated,
+}: {
+  onNavigate: (page: Page) => void;
+  isAuthenticated: boolean;
+}) => (
+  <footer className="bg-surface-container border-t border-outline-variant/15 mt-24">
+    <div className="max-w-screen-2xl mx-auto px-8 py-16 grid grid-cols-1 md:grid-cols-3 gap-12">
+      <div className="space-y-6">
+        <span className="text-xl font-headline text-primary">The Digital Archivist</span>
+        <p className="text-base font-headline text-on-surface-variant italic">
+          Preserving the human record, one digital page at a time. Join our community of lifelong learners.
+        </p>
+        <div className="flex gap-4">
+          <button type="button" onClick={() => onNavigate('landing')} className="text-primary hover:opacity-80">
+            <Globe className="w-5 h-5" />
+          </button>
+          <button type="button" onClick={() => onNavigate('login')} className="text-primary hover:opacity-80">
+            <Mail className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+      <div className="space-y-6">
+        <h5 className="text-xs font-bold uppercase tracking-widest text-primary">Resources</h5>
+        <ul className="space-y-4">
+          {[
+            ['Terms of Service', 'terms-of-service' as const],
+            ['Privacy Policy', 'privacy-policy' as const],
+            ['Archive Ethics', 'archive-ethics' as const],
+          ].map(([label, page]) => (
+            <li key={label}>
+              <button
+                onClick={() => onNavigate(page)}
+                className="text-base font-headline text-on-surface-variant hover:text-primary hover:underline text-left"
+              >
+                {label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="space-y-6">
+        <h5 className="text-xs font-bold uppercase tracking-widest text-primary">Support</h5>
+        <ul className="space-y-4">
+          {[
+            ['Contact Support', 'contact-support' as const],
+            ['Help Center', 'help-center' as const],
+          ].map(([label, page]) => (
+            <li key={label}>
+              <button
+                onClick={() => onNavigate(page)}
+                className="text-base font-headline text-on-surface-variant hover:text-primary hover:underline text-left"
+              >
+                {label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+    <div className="max-w-screen-2xl mx-auto px-8 py-8 border-t border-outline-variant/15 flex flex-col md:flex-row justify-between items-center gap-4">
+      <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">© 2026 The Digital Archivist. All rights reserved.</span>
+      <div className="flex gap-8">
+        <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">ISSN 2764-9811</span>
+        <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Printed in Spirit</span>
+      </div>
+    </div>
+  </footer>
+);
+
+function BookCard({
+  book,
+  variant = 'standard',
+  layout = 'stacked',
+  onPrimaryAction,
+}: {
+  book: Book;
+  variant?: 'standard' | 'personal' | 'wishlist';
+  layout?: 'stacked' | 'inline';
+  onPrimaryAction?: (book: Book) => void;
+  key?: string | number;
+}) {
+  const hasImage = typeof book.image === 'string' && book.image.trim().length > 0;
+  const isInline = layout === 'inline';
+
+  return (
+    <motion.div 
+      whileHover={{ y: -8 }}
+      className={`group cursor-pointer ${isInline ? 'flex gap-6 items-start' : `space-y-6 ${variant === 'standard' && (book.id === '2' || book.id === '4') ? 'lg:mt-12' : ''}`}`}
+    >
+      <div className={`overflow-hidden rounded-lg relative bg-surface-container-highest book-shadow ${isInline ? 'aspect-[3/4] w-28 shrink-0' : 'aspect-[3/4]'}`}>
+        {variant === 'personal' && book.isFlipbook ? (
+          <div className="absolute top-4 left-4 z-10 rounded-full bg-primary text-on-primary px-3 py-1 text-[10px] font-bold uppercase tracking-widest shadow-lg">
+            Flipbook
+          </div>
+        ) : null}
+        {hasImage ? (
+          <img 
+            src={book.image} 
+            alt={book.title}
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full p-4 bg-gradient-to-b from-surface-container-high to-surface-container-low flex flex-col justify-end">
+            <h4 className="font-headline text-2xl text-primary leading-tight line-clamp-3">{book.title}</h4>
+            <p className="text-sm text-on-surface-variant mt-2 line-clamp-2">By {book.author}</p>
+          </div>
+        )}
+        {book.rating && (
+          <div className="absolute top-4 right-4 glass-card px-2 py-1 rounded-md flex items-center gap-1">
+            <Star className="w-3 h-3 fill-primary text-primary" />
+            <span className="text-[10px] font-bold text-primary">{book.rating}</span>
+          </div>
+        )}
+      </div>
+      <div className={isInline ? 'flex-1 space-y-1' : 'space-y-1'}>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{book.category}</p>
+        <h3 className="font-headline text-2xl text-primary leading-tight">{book.title}</h3>
+        <p className="text-sm text-on-surface-variant">By {book.author}</p>
+        {variant === 'wishlist' && <p className="text-lg font-bold text-primary mt-2">{book.price}</p>}
+        {variant === 'personal' && book.progress !== undefined && (
+          <div className="mt-4 space-y-2">
+            <div className="h-1 w-full bg-secondary-container rounded-full overflow-hidden">
+              <div className="h-full bg-primary" style={{ width: `${book.progress}%` }} />
+            </div>
+            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{book.progress}% Completed</p>
+          </div>
+        )}
+        {variant === 'personal' && !book.progress && (
+          <button
+            type="button"
+            onClick={() => {
+              if (book.isFlipbook && book.fileUrl) {
+                window.open(book.fileUrl, '_blank', 'noopener,noreferrer');
+                return;
+              }
+              onPrimaryAction?.(book);
+            }}
+            className="mt-4 w-full py-2 border border-outline-variant/30 rounded-lg text-xs font-bold uppercase tracking-widest text-primary hover:bg-surface-container-low transition-colors"
+          >
+            {book.isFlipbook ? 'Open Flipbook' : 'Read Now'}
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// --- Pages ---
+
+// Resource Pages
+const ResourcePage = ({
+  setPage,
+  title,
+  content,
+}: {
+  setPage: (p: Page) => void;
+  title: string;
+  content: React.ReactNode;
+}) => (
+  <div className="min-h-screen bg-background">
+    <div className="max-w-4xl mx-auto px-8 py-16">
+      <button
+        onClick={() => setPage('landing')}
+        className="text-primary hover:text-primary/80 text-sm font-bold uppercase tracking-widest mb-8 flex items-center gap-2"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Back to Home
+      </button>
+      <div className="prose prose-invert max-w-none">
+        <h1 className="text-4xl font-headline mb-8 text-primary">{title}</h1>
+        <div className="text-base font-headline text-on-surface-variant leading-relaxed space-y-6">
+          {content}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const TermsOfServicePage = ({ setPage }: { setPage: (p: Page) => void }) => (
+  <ResourcePage
+    setPage={setPage}
+    title="Terms of Service"
+    content={
+      <>
+        <p>
+          Welcome to <span className="text-primary font-bold">The Digital Archivist</span>. These Terms of Service govern your use of our platform, website, and services. By accessing and using our services, you agree to be bound by these terms.
+        </p>
+        
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">1. User Eligibility</h2>
+          <p>
+            You must be at least 13 years old to use The Digital Archivist. By creating an account, you represent that you have the legal capacity to enter into this agreement and that all information you provide is accurate and complete.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">2. Intellectual Property Rights</h2>
+          <p>
+            The Digital Archivist respects intellectual property rights. All books, content, and materials available on our platform are protected by copyright and other laws. You may not reproduce, distribute, or transmit any content without proper authorization.
+          </p>
+          <p>
+            When you purchase access to a book, you are licensed to view and read the content personally. You do not own the book or have the right to modify, sell, or distribute it to others.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">3. User Conduct</h2>
+          <p>
+            You agree not to engage in any conduct that violates these terms or applicable laws, including but not limited to:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Attempting to breach our security systems</li>
+            <li>Uploading or sharing malicious content</li>
+            <li>Harassing or abusing other users</li>
+            <li>Commercial exploitation of our platform</li>
+            <li>Violating any copyright or intellectual property rights</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">4. Account Responsibility</h2>
+          <p>
+            You are responsible for maintaining the confidentiality of your account credentials. You agree to notify us immediately of any unauthorized access or use of your account. We are not liable for any damages resulting from unauthorized activity on your account.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">5. Limitation of Liability</h2>
+          <p>
+            To the fullest extent permitted by law, The Digital Archivist is provided "as is" without warranties. We are not liable for any indirect, incidental, special, or consequential damages arising from your use of our platform.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">6. Termination</h2>
+          <p>
+            We reserve the right to terminate or suspend your account at any time for violations of these terms or for any reason we see fit. Upon termination, your access to all purchased content will cease.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">7. Changes to Terms</h2>
+          <p>
+            We may update these Terms of Service at any time. Your continued use of The Digital Archivist following such changes constitutes your acceptance of the updated terms.
+          </p>
+        </section>
+      </>
+    }
+  />
+);
+
+const PrivacyPolicyPage = ({ setPage }: { setPage: (p: Page) => void }) => (
+  <ResourcePage
+    setPage={setPage}
+    title="Privacy Policy"
+    content={
+      <>
+        <p>
+          <span className="text-primary font-bold">The Digital Archivist</span> is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information.
+        </p>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">1. Information We Collect</h2>
+          <p>
+            We collect information you provide directly, such as:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Account registration details (name, email, password)</li>
+            <li>Payment information (processed securely through third-party providers)</li>
+            <li>Reading history and preferences</li>
+            <li>Communications and feedback you send us</li>
+          </ul>
+          <p className="mt-4">
+            We also automatically collect certain information, including:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Browser type and operating system</li>
+            <li>IP address and location data</li>
+            <li>Pages visited and time spent reading</li>
+            <li>Device identifiers and cookies</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">2. How We Use Your Information</h2>
+          <p>
+            We use the information we collect to:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Provide and improve our services</li>
+            <li>Process payments and manage your account</li>
+            <li>Send you updates and personalized recommendations</li>
+            <li>Respond to your inquiries and support requests</li>
+            <li>Monitor platform security and prevent fraud</li>
+            <li>Comply with legal obligations</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">3. Data Security</h2>
+          <p>
+            We implement industry-standard security measures to protect your information. However, no method of transmission over the internet is completely secure. While we strive to protect your data, we cannot guarantee absolute security.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">4. Third-Party Sharing</h2>
+          <p>
+            We do not sell your personal information to third parties. We may share information with service providers who assist us in operating our platform, only for purposes necessary to provide our services. These providers are bound by confidentiality agreements.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">5. Your Rights</h2>
+          <p>
+            You have the right to:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Access your personal information</li>
+            <li>Request corrections to inaccurate data</li>
+            <li>Request deletion of your account and associated data</li>
+            <li>Opt out of promotional communications</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">6. Cookies and Tracking</h2>
+          <p>
+            We use cookies to enhance your experience. You can control cookie settings through your browser preferences. Note that disabling cookies may affect platform functionality.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">7. Changes to This Policy</h2>
+          <p>
+            We may update this Privacy Policy periodically. We will notify you of significant changes via email or platform notification.
+          </p>
+        </section>
+      </>
+    }
+  />
+);
+
+const ArchiveEthicsPage = ({ setPage }: { setPage: (p: Page) => void }) => (
+  <ResourcePage
+    setPage={setPage}
+    title="Archive Ethics"
+    content={
+      <>
+        <p>
+          <span className="text-primary font-bold">The Digital Archivist</span> is built on principles of cultural preservation, accessibility, and ethical stewardship of knowledge. This document outlines our commitment to ethical archival practices.
+        </p>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">1. Commitment to Preservation</h2>
+          <p>
+            We believe that knowledge should be preserved for future generations. Our mission is to maintain digital access to important works of literature, history, and human expression, ensuring that cultural heritage remains available to all.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">2. Respect for Authors and Publishers</h2>
+          <p>
+            We respect the intellectual property rights of authors and publishers. All works on our platform are acquired through legitimate channels with proper licensing agreements. We aim to balance author and publisher rights with public access to knowledge.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">3. Inclusive Access</h2>
+          <p>
+            We are committed to making knowledge accessible to diverse audiences. Our platform includes features for:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Reading accessibility and customizable text size</li>
+            <li>Multiple formats to accommodate different needs</li>
+            <li>Affordable pricing structures for students and researchers</li>
+            <li>Support for multiple languages and cultural perspectives</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">4. Cultural Sensitivity</h2>
+          <p>
+            We recognize that archives contain materials from diverse cultures and historical periods. We approach all works with cultural sensitivity while preserving historical accuracy. Historical perspectives and language are presented in their original context.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">5. Metadata and Discoverability</h2>
+          <p>
+            We maintain comprehensive and accurate metadata for all archived materials. This enables users to discover, contextualize, and understand works within their historical and cultural frameworks.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">6. Long-term Preservation</h2>
+          <p>
+            We are committed to the long-term digital preservation of works. Our infrastructure and practices follow international standards for digital preservation to ensure materials remain accessible beyond the lifespan of any single platform or organization.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">7. User Responsibility</h2>
+          <p>
+            Users accessing our archive agree to use materials responsibly and legally. We trust our community to respect intellectual property and use knowledge in ways that honor both creators and the collective human record.
+          </p>
+        </section>
+      </>
+    }
+  />
+);
+
+const ContactSupportPage = ({ setPage }: { setPage: (p: Page) => void }) => (
+  <ResourcePage
+    setPage={setPage}
+    title="Contact Support"
+    content={
+      <>
+        <p>
+          We're here to help! Whether you have questions about your account, need technical assistance, or have feedback about <span className="text-primary font-bold">The Digital Archivist</span>, we'd love to hear from you.
+        </p>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Contact Methods</h2>
+          <p>
+            You can reach our support team through the following channels:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li><span className="font-bold">Email:</span> support@thedigitalarchivist.com</li>
+            <li><span className="font-bold">Phone:</span> Available during business hours</li>
+            <li><span className="font-bold">Contact Form:</span> Submit a message directly on our website</li>
+            <li><span className="font-bold">Social Media:</span> Message us on our official social channels</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Response Times</h2>
+          <p>
+            We aim to respond to all inquiries within 24-48 hours during business days. For urgent technical issues, please mark your message as "Priority" and we'll prioritize your request.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Common Issues</h2>
+          <p>
+            Before contacting support, you may find answers to common questions in our Help Center, including:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Account login and password reset</li>
+            <li>Payment and billing issues</li>
+            <li>Reading and navigation features</li>
+            <li>Book access and download problems</li>
+            <li>Subscription and membership questions</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Technical Support</h2>
+          <p>
+            For technical issues, please provide:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Your device type and operating system</li>
+            <li>Browser name and version</li>
+            <li>Description of the issue and steps to reproduce it</li>
+            <li>Screenshot or error message if applicable</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Feedback and Suggestions</h2>
+          <p>
+            We value your feedback and suggestions for improving The Digital Archivist. Please don't hesitate to share your ideas—they help us build a better platform for everyone.
+          </p>
+        </section>
+      </>
+    }
+  />
+);
+
+const HelpCenterPage = ({ setPage }: { setPage: (p: Page) => void }) => (
+  <ResourcePage
+    setPage={setPage}
+    title="Help Center"
+    content={
+      <>
+        <p>
+          Welcome to the <span className="text-primary font-bold">The Digital Archivist</span> Help Center. Here you'll find answers to frequently asked questions and guides to help you get the most out of our platform.
+        </p>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Getting Started</h2>
+          <h3 className="font-bold text-on-surface mt-4 mb-2">How do I create an account?</h3>
+          <p>
+            Click the "Sign Up" button on our homepage, enter your email address and create a password. Verify your email by clicking the confirmation link we send you, and you're ready to start exploring!
+          </p>
+          
+          <h3 className="font-bold text-on-surface mt-4 mb-2">How do I reset my password?</h3>
+          <p>
+            On the login page, click "Forgot Password" and enter your email address. We'll send you a link to create a new password.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Browsing & Searching</h2>
+          <h3 className="font-bold text-on-surface mt-4 mb-2">How do I search for books?</h3>
+          <p>
+            Use the search bar at the top of the page to find books by title, author, or subject. You can also browse by category or use filters to narrow your results.
+          </p>
+          
+          <h3 className="font-bold text-on-surface mt-4 mb-2">Can I save books for later?</h3>
+          <p>
+            Yes! Click the heart icon on any book card to add it to your wishlist. You can access your wishlist anytime from your account menu.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Reading</h2>
+          <h3 className="font-bold text-on-surface mt-4 mb-2">How do I read a book?</h3>
+          <p>
+            Once you've purchased a book, it appears in your Personal Library. Click "Read Now" to open it in our reader, or "Open Flipbook" for interactive flipbook formats.
+          </p>
+          
+          <h3 className="font-bold text-on-surface mt-4 mb-2">What reading features are available?</h3>
+          <p>
+            Our reader includes features like adjustable text size, different themes (light, sepia, dark), chapter navigation, and highlighting. Use the controls at the top of the reader to customize your experience.
+          </p>
+          
+          <h3 className="font-bold text-on-surface mt-4 mb-2">Can I download books?</h3>
+          <p>
+            Books can be downloaded in PDF format for offline reading. Look for the download button in the reader interface.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Purchasing & Billing</h2>
+          <h3 className="font-bold text-on-surface mt-4 mb-2">What payment methods do you accept?</h3>
+          <p>
+            We accept major credit cards, digital wallets, and other secure payment methods. All transactions are encrypted and processed by trusted payment providers.
+          </p>
+          
+          <h3 className="font-bold text-on-surface mt-4 mb-2">How do I track my order?</h3>
+          <p>
+            After purchase, your book is immediately available in your Personal Library. You'll receive a confirmation email with your order details.
+          </p>
+          
+          <h3 className="font-bold text-on-surface mt-4 mb-2">What's your refund policy?</h3>
+          <p>
+            We offer refunds for purchases within 7 days if you haven't accessed the content. Please contact our support team to process a refund.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Account & Library</h2>
+          <h3 className="font-bold text-on-surface mt-4 mb-2">How do I access my Personal Library?</h3>
+          <p>
+            Click your profile icon in the navigation menu and select "Personal Library" to see all your purchased books.
+          </p>
+          
+          <h3 className="font-bold text-on-surface mt-4 mb-2">Can I delete books from my library?</h3>
+          <p>
+            Your purchased books are permanently in your library. If you no longer want to see a book, you can use the hide or organize features to customize your view.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Still Need Help?</h2>
+          <p>
+            If you can't find the answer you're looking for, please visit our Contact Support page or email us at support@thedigitalarchivist.com. Our team is happy to help!
+          </p>
+        </section>
+      </>
+    }
+  />
+);
+
+const LandingPage = ({
+  setPage,
+  onBeginReading,
+  onViewDetails,
+  isAuthenticated,
+  newReleases,
+  catalogTotal,
+}: {
+  setPage: (p: Page) => void;
+  onBeginReading: () => void;
+  onViewDetails: () => void;
+  isAuthenticated: boolean;
+  newReleases: Book[];
+  catalogTotal: number;
+}) => {
+  const mostReadBooks = [...newReleases].reverse();
+
+  return (
+  <div className="space-y-0">
+    {/* Hero Section */}
+    <section className="relative min-h-[870px] flex items-center overflow-hidden px-8 lg:px-24">
+      <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-transparent z-10" />
+        <img 
+          src="https://picsum.photos/seed/library/1920/1080?blur=4" 
+          alt="Library backdrop" 
+          referrerPolicy="no-referrer"
+          className="w-full h-full object-cover opacity-20"
+        />
+      </div>
+      <div className="relative z-20 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div className="space-y-8">
+          <div className="space-y-4">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">Featured Archive Edition</span>
+            <h1 className="font-headline text-6xl lg:text-8xl text-primary leading-[1.1]">
+            The art of  <br/><i className="font-serif">Masuki books</i>
+            </h1>
+            <p className="text-lg text-on-surface-variant max-w-[50ch] leading-relaxed">
+              A curated exploration into the philosophy of deep reading in a digital age. Discover why the most profound ideas require the most patience.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {isAuthenticated ? (
+              <>
+                <button type="button" onClick={onBeginReading} className="primary-gradient text-on-primary px-8 py-4 rounded-xl font-medium transition-transform active:scale-95 flex items-center gap-2">
+                  Begin Reading
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={onViewDetails} className="border border-outline-variant/30 text-primary px-8 py-4 rounded-xl font-medium hover:bg-surface-container-low transition-colors">
+                  View Details
+                </button>
+              </>
+            ) : (
+              <button type="button" onClick={() => setPage('login')} className="border border-outline-variant/30 text-primary px-8 py-4 rounded-xl font-medium hover:bg-surface-container-low transition-colors">
+                Sign In
+              </button>
+            )}
+          </div>
+          {isAuthenticated ? (
+            <div className="flex items-center gap-6 pt-4">
+              <div className="flex -space-x-3">
+                {[1, 2, 3].map(i => (
+                  <img 
+                    key={i}
+                    src={`https://picsum.photos/seed/user${i}/100/100`} 
+                    className="w-10 h-10 rounded-full border-2 border-background object-cover"
+                    referrerPolicy="no-referrer"
+                    alt="User"
+                  />
+                ))}
+              </div>
+              <p className="text-sm text-on-surface-variant"><span className="font-bold text-primary">{catalogTotal}</span> titles in the public catalog</p>
+            </div>
+          ) : (
+            <div className="pt-4 max-w-xl">
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low/80 p-6 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Members only</p>
+                <p className="text-sm text-on-surface-variant">
+                  Sign in to unlock the public library, personal shelf, wishlist, and subscription features.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="relative flex justify-center lg:justify-end">
+          <div className="relative w-72 lg:w-96 aspect-[3/4] group">
+            <div className="absolute inset-0 bg-surface-container-highest rounded-lg -rotate-3 transition-transform group-hover:-rotate-6" />
+            <img 
+              src="https://picsum.photos/seed/featured/800/1000" 
+              alt="Featured Book" 
+              referrerPolicy="no-referrer"
+              className="relative w-full h-full object-cover rounded-lg book-shadow transition-transform group-hover:-translate-y-4 group-hover:-translate-x-2"
+            />
+            <div className="absolute -bottom-6 -right-6 glass-card p-6 rounded-xl book-shadow max-w-[200px]">
+              <p className="font-headline text-xl text-primary mb-1 italic">"Essential reading for the modern soul."</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">— The New Yorker</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* New Releases */}
+    <section className="py-24 bg-surface-container-low">
+      <div className="max-w-screen-2xl mx-auto px-8 space-y-16">
+        <div>
+          <div className="flex justify-between items-end mb-16">
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">The Recent Collection</span>
+              <h2 className="font-headline text-5xl text-primary">Recently Added</h2>
+            </div>
+            <button 
+              onClick={() => setPage('public-library')}
+              className="text-primary font-medium flex items-center gap-2 group"
+            >
+              Explore Full Library 
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+            {newReleases.map(book => <BookCard key={book.id} book={book} />)}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-10 space-y-2">
+            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Reader Favorites</span>
+            <h2 className="font-headline text-5xl text-primary">Most Read</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+            {mostReadBooks.map(book => <BookCard key={`most-read-${book.id}`} book={book} />)}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* Curated Shelves */}
+    <section className="py-24 bg-surface">
+      <div className="max-w-screen-2xl mx-auto px-8">
+        <div className="text-center mb-16 space-y-4">
+          <h2 className="font-headline text-5xl text-primary italic">Curated Shelves</h2>
+          <p className="text-on-surface-variant max-w-[60ch] mx-auto">
+            Explore our collection by theme. Each category is hand-curated by our resident archivists to ensure a cohesive intellectual journey.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[800px] md:h-[600px]">
+          <div className="md:col-span-2 relative group overflow-hidden rounded-xl bg-primary">
+            <img 
+              src="https://picsum.photos/seed/philosophy/1200/800" 
+              className="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-110" 
+              referrerPolicy="no-referrer"
+              alt="Philosophy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-primary/90 to-transparent" />
+            <div className="absolute bottom-8 left-8">
+              <h3 className="font-headline text-4xl text-on-primary mb-2">Philosophy</h3>
+              <p className="text-secondary-container text-sm font-bold uppercase tracking-widest">{catalogTotal} Titles</p>
+            </div>
+          </div>
+          <div className="relative group overflow-hidden rounded-xl bg-secondary-container">
+            <img 
+              src="https://picsum.photos/seed/science/800/800" 
+              className="absolute inset-0 w-full h-full object-cover opacity-50 transition-transform duration-700 group-hover:scale-110" 
+              referrerPolicy="no-referrer"
+              alt="Science"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-secondary-container to-transparent" />
+            <div className="absolute bottom-8 left-8">
+              <h3 className="font-headline text-3xl text-primary mb-2">Science</h3>
+              <p className="text-on-secondary-container text-sm font-bold uppercase tracking-widest">{catalogTotal} Titles</p>
+            </div>
+          </div>
+          <div className="relative group overflow-hidden rounded-xl bg-surface-container-highest">
+            <img 
+              src="https://picsum.photos/seed/literature/800/800" 
+              className="absolute inset-0 w-full h-full object-cover opacity-40 transition-transform duration-700 group-hover:scale-110" 
+              referrerPolicy="no-referrer"
+              alt="Literature"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-surface-container-highest to-transparent" />
+            <div className="absolute bottom-8 left-8">
+              <h3 className="font-headline text-3xl text-primary mb-2">Literature</h3>
+              <p className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">{catalogTotal} Titles</p>
+            </div>
+          </div>
+          <div className="md:col-span-2 relative group overflow-hidden rounded-xl bg-tertiary-container">
+            <img 
+              src="https://picsum.photos/seed/economics/1200/800" 
+              className="absolute inset-0 w-full h-full object-cover opacity-30 transition-transform duration-700 group-hover:scale-110" 
+              referrerPolicy="no-referrer"
+              alt="Economics"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-tertiary-container to-transparent" />
+            <div className="absolute bottom-8 left-8">
+              <h3 className="font-headline text-4xl text-on-tertiary-container mb-2">Economics</h3>
+              <p className="text-on-tertiary-container/70 text-sm font-bold uppercase tracking-widest">{catalogTotal} Titles</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* Features */}
+    <section className="py-24 bg-surface-container border-y border-outline-variant/15">
+      <div className="max-w-screen-2xl mx-auto px-8 grid grid-cols-1 md:grid-cols-3 gap-16">
+        <div className="space-y-6">
+          <BookOpen className="w-10 h-10 text-primary" />
+          <h4 className="font-headline text-2xl text-primary">Distraction-Free</h4>
+          <p className="text-on-surface-variant leading-relaxed">Our interface is designed to disappear. No popups, no tracking, just the ink and your imagination.</p>
+        </div>
+        <div className="space-y-6">
+          <History className="w-10 h-10 text-primary" />
+          <h4 className="font-headline text-2xl text-primary">True Ownership</h4>
+          <p className="text-on-surface-variant leading-relaxed">Every purchase includes a permanent archival copy. Your library is yours, regardless of the platform's future.</p>
+        </div>
+        <div className="space-y-6">
+          <Highlighter className="w-10 h-10 text-primary" />
+          <h4 className="font-headline text-2xl text-primary">Scholarly Tools</h4>
+          <p className="text-on-surface-variant leading-relaxed">Export your highlights to any research tool. We support Markdown, Obsidian, and Zotero natively.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+  );
+};
+
+const PersonalLibrary = ({
+  books,
+  readingBook,
+  actionMessage,
+  activeTab,
+  onTabChange,
+  onOpenReader,
+  onOpenCatalog,
+  onSortChange,
+  sortLabel,
+}: {
+  books: Book[];
+  readingBook: Book | undefined;
+  actionMessage?: string;
+  activeTab: 'reading' | 'collections';
+  onTabChange: (tab: 'reading' | 'collections') => void;
+  onOpenReader: () => void;
+  onOpenCatalog: () => void;
+  onSortChange: () => void;
+  sortLabel: string;
+}) => (
+  <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-16">
+    <div className="space-y-4">
+      <h1 className="font-headline text-6xl text-primary">Curated Archives</h1>
+      <p className="text-lg text-on-surface-variant max-w-[60ch]">
+        Welcome back to your private collection. A sanctuary for the minds that seek timeless narratives and architectural thoughts.
+      </p>
+    </div>
+
+    <div className="flex gap-8 border-b border-outline-variant/15">
+      {[
+        ['Reading Now', 'reading'],
+        ['My Collections', 'collections'],
+      ].map(([tab, key]) => (
+        <button 
+          key={tab}
+          type="button"
+          onClick={() => onTabChange(key as 'reading' | 'collections')}
+          className={`pb-4 text-sm font-bold uppercase tracking-widest transition-all ${activeTab === key ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-primary'}`}
+        >
+          {tab}
+        </button>
+      ))}
+      <div className="ml-auto flex items-center gap-2 text-xs text-on-surface-variant">
+        <span>Filter By:</span>
+        <button type="button" onClick={onSortChange} className="font-bold text-primary flex items-center gap-1">
+          {sortLabel} <ArrowRight className="w-3 h-3 rotate-90" />
+        </button>
+      </div>
+    </div>
+
+    {actionMessage ? (
+      <p className="text-sm text-on-surface-variant" role="status">{actionMessage}</p>
+    ) : null}
+
+    {activeTab === 'reading' && (
+      <div className="relative bg-surface-container-low rounded-2xl overflow-hidden p-8 md:p-12 flex flex-col md:flex-row gap-12 items-center">
+        <div className="w-64 aspect-square bg-on-background rounded-lg overflow-hidden book-shadow flex-shrink-0">
+          <img 
+            src={readingBook?.image || ''} 
+            className="w-full h-full object-cover opacity-80" 
+            referrerPolicy="no-referrer"
+            alt={readingBook?.title || 'Current Book'}
+          />
+        </div>
+        <div className="space-y-6 flex-grow">
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">Resuming Chapter 4</p>
+            <h2 className="font-headline text-4xl text-primary">{readingBook?.title || 'Your reading'}</h2>
+            <p className="text-sm text-on-surface-variant">By {readingBook?.author || '—'}{readingBook?.progress != null ? ` • ${readingBook.progress}% Completed` : ''}</p>
+          </div>
+          <p className="font-headline text-xl text-primary italic leading-relaxed max-w-[50ch]">
+            {readingBook?.description?.trim() ? `"${readingBook.description}"` : '"Select a title from your library to continue reading."'}
+          </p>
+          <div className="h-1 w-full bg-secondary-container rounded-full overflow-hidden">
+            <div className="h-full bg-primary" style={{ width: `${readingBook?.progress ?? 0}%` }} />
+          </div>
+          <div className="flex gap-4">
+            <button type="button" onClick={onOpenReader} className="primary-gradient text-on-primary px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex items-center gap-2">
+              <BookOpen className="w-4 h-4" /> Read Now
+            </button>
+            <button type="button" onClick={onOpenCatalog} className="px-8 py-3 border border-outline-variant/30 rounded-lg font-bold uppercase tracking-widest text-xs text-primary hover:bg-surface-container-high transition-colors">
+              Details
+            </button>
+          </div>
+        </div>
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-surface-container-highest/30 -skew-x-12 translate-x-1/2 pointer-events-none" />
+      </div>
+    )}
+
+    {activeTab === 'collections' && (
+      <div className="space-y-8">
+        <div className="flex justify-between items-end">
+          <h2 className="font-headline text-4xl text-primary">Your Collection</h2>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{books.length} Volumes Collected</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+          {books.map(book => <BookCard key={book.id} book={book} variant="personal" onPrimaryAction={onOpenReader} />)}
+        </div>
+      </div>
+    )}
+
+  </div>
+);
+
+const PublicLibrary = ({
+  books,
+  totalCount,
+  onAddToCart,
+  onRequestPurchaseAccess,
+  actionMessage,
+  pagination,
+  viewMode,
+  onToggleViewMode,
+  sortMode,
+  onToggleSortMode,
+}: {
+  books: Book[];
+  totalCount: number;
+  onAddToCart: (book: Book) => void;
+  onRequestPurchaseAccess: (book: Book) => void;
+  actionMessage?: string;
+  pagination: {
+    onPrev: () => void;
+    onNext: () => void;
+    onSelectPage: (page1Based: number) => void;
+    currentPage1Based: number;
+    totalPages: number;
+  };
+  viewMode: 'grid' | 'list';
+  onToggleViewMode: (mode: 'grid' | 'list') => void;
+  sortMode: 'latest' | 'title';
+  onToggleSortMode: () => void;
+}) => (
+  <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-12">
+    <div className="space-y-4">
+      <h1 className="font-headline text-7xl text-primary">The Boundless Collection</h1>
+      <p className="text-lg text-on-surface-variant italic">Browse through centuries of thought, curated for the modern intellectual.</p>
+    </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
+      {/* Sidebar Filters */}
+      <aside className="space-y-12">
+        <div className="space-y-6">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary">Genre</h4>
+          <div className="space-y-4">
+            {['Classic Literature', 'Philosophy', 'Art History', 'Poetry', 'Scientific Journals'].map(genre => (
+              <label key={genre} className="flex items-center gap-3 cursor-pointer group">
+                <input type="checkbox" className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary" defaultChecked={genre === 'Classic Literature'} />
+                <span className="text-sm text-on-surface-variant group-hover:text-primary transition-colors">{genre}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-6">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary">Author</h4>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-on-surface-variant" />
+            <input type="text" placeholder="Find author..." className="w-full bg-surface-container-highest border-none rounded-lg pl-10 pr-4 py-2 text-xs outline-none" />
+          </div>
+          <div className="space-y-4">
+            {['Virginia Woolf', 'Leo Tolstoy', 'James Baldwin', 'Albert Camus'].map(author => (
+              <label key={author} className="flex items-center gap-3 cursor-pointer group">
+                <input type="checkbox" className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary" />
+                <span className="text-sm text-on-surface-variant group-hover:text-primary transition-colors">{author}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-6">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary">Language</h4>
+          <select className="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm outline-none">
+            <option>English</option>
+            <option>French</option>
+            <option>German</option>
+          </select>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="lg:col-span-3 space-y-12">
+        {actionMessage ? (
+          <p className="text-sm text-on-surface-variant" role="status">{actionMessage}</p>
+        ) : null}
+        <div className="bg-surface-container-low rounded-xl p-4 flex justify-between items-center">
+          <span className="text-xs text-on-surface-variant">Showing <span className="font-bold text-primary">{totalCount}</span> masterpieces</span>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-on-surface-variant">SORT:</span>
+              <button type="button" onClick={onToggleSortMode} className="font-bold text-primary flex items-center gap-1">
+                {sortMode === 'latest' ? 'Latest Acquisitions' : 'Title A-Z'} <ArrowRight className="w-3 h-3 rotate-90" />
+              </button>
+            </div>
+            <div className="flex gap-2 border-l border-outline-variant/30 pl-6">
+              <button type="button" onClick={() => onToggleViewMode('grid')} className={`p-2 rounded-lg shadow-sm ${viewMode === 'grid' ? 'bg-white text-primary' : 'text-on-surface-variant hover:text-primary'}`}><LayoutGrid className="w-4 h-4" /></button>
+              <button type="button" onClick={() => onToggleViewMode('list')} className={`p-2 rounded-lg shadow-sm ${viewMode === 'list' ? 'bg-white text-primary' : 'text-on-surface-variant hover:text-primary'}`}><ListIcon className="w-4 h-4" /></button>
+            </div>
+          </div>
+        </div>
+
+        <div className={viewMode === 'list' ? 'space-y-6' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8'}>
+          {books.map((book) => (
+            <div key={book.id} className={viewMode === 'list' ? 'rounded-2xl border border-outline-variant/15 bg-white/70 p-4' : 'space-y-3'}>
+              <BookCard book={book} layout={viewMode === 'list' ? 'inline' : 'stacked'} />
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-primary border border-outline-variant/30 rounded-lg hover:bg-surface-container-high transition-colors"
+                  onClick={() => onAddToCart(book)}
+                >
+                  Add to Cart
+                </button>
+                <button
+                  type="button"
+                  className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-on-primary rounded-lg primary-gradient flex items-center justify-center gap-1"
+                  onClick={() => onRequestPurchaseAccess(book)}
+                >
+                  Purchase to View
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pagination */}
+        <div className="flex justify-center items-center gap-4 pt-12">
+          <button type="button" onClick={pagination.onPrev} className="p-3 rounded-full border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:border-primary transition-all">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          {compactPaginationSlots(pagination.totalPages, pagination.currentPage1Based).map((slot, i) => (
+            <button
+              key={i}
+              type="button"
+              disabled={slot === '…'}
+              onClick={() => typeof slot === 'number' && pagination.onSelectPage(slot)}
+              className={`w-10 h-10 rounded-full text-sm font-bold transition-all ${slot === pagination.currentPage1Based ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-primary'}`}
+            >
+              {slot}
+            </button>
+          ))}
+          <button type="button" onClick={pagination.onNext} className="p-3 rounded-full border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:border-primary transition-all">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const WishlistPage = ({
+  cart,
+  cartBooks,
+  onRemoveLine,
+  onProceedCheckout,
+  savedBooks,
+  onMoveToWishlist,
+  onSaveForLater,
+  onMoveSavedToCart,
+  onToggleExpanded,
+  showAll,
+  onBrowseCatalog,
+  onRemoveFromWishlist,
+  actionMessage,
+}: {
+  cart: CartRow | null | undefined;
+  cartBooks: Book[];
+  onRemoveLine: (cartItemId: string) => void;
+  onProceedCheckout: () => void;
+  savedBooks: Book[];
+  onMoveToWishlist: (book: Book) => void;
+  onSaveForLater: (book: Book) => void;
+  onMoveSavedToCart: (book: Book) => void;
+  onRemoveFromWishlist: (book: Book) => void;
+  onToggleExpanded: () => void;
+  showAll: boolean;
+  onBrowseCatalog: () => void;
+  actionMessage?: string;
+}) => {
+  const summaryBooks = showAll ? cartBooks : cartBooks.slice(0, 2);
+  const subNum = cartBooks.reduce(
+    (sum, book) => sum + parseCurrencyAmount(book.price),
+    0
+  );
+  const totalItems = cartBooks.length;
+  return (
+  <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-24">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+      <div className="lg:col-span-2 space-y-12">
+        <div className="space-y-4">
+          <h1 className="font-headline text-6xl text-primary italic">The Shopping Cart</h1>
+          <p className="text-lg text-on-surface-variant italic">Review your selected volumes before they enter your permanent archive.</p>
+          {actionMessage ? <p className="text-sm text-on-surface-variant" role="status">{actionMessage}</p> : null}
+        </div>
+        <div className="space-y-8">
+          {summaryBooks.map(book => (
+            <div key={book.id} className="flex gap-8 p-6 bg-surface-container-low rounded-xl border border-outline-variant/15 group">
+              <div className="w-32 aspect-[3/4] bg-on-background rounded-lg overflow-hidden book-shadow flex-shrink-0">
+                <img src={book.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" alt={book.title} />
+              </div>
+              <div className="flex-grow flex flex-col justify-between py-2">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-headline text-2xl text-primary italic">{book.title}</h3>
+                    <button type="button" className="text-on-surface-variant hover:text-primary transition-colors" onClick={() => onRemoveLine(book.cartItemId ?? book.id)}><X className="w-5 h-5" /></button>
+                  </div>
+                  <p className="text-sm text-on-surface-variant">By {book.author} • {book.category}</p>
+                </div>
+                <div className="flex justify-between items-end">
+                  <div className="flex gap-4">
+                    <button type="button" onClick={() => onMoveToWishlist(book)} className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline">Move to Wishlist</button>
+                    <button type="button" onClick={() => onSaveForLater(book)} className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-primary">Save for Later</button>
+                  </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Single copy</span>
+                      <p className="font-headline text-2xl text-primary italic">{book.price}</p>
+                    </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <aside className="space-y-8">
+        <div className="bg-surface-container-low p-12 rounded-2xl space-y-8 sticky top-32">
+          <h3 className="font-headline text-3xl text-primary italic">Order Summary</h3>
+          <div className="space-y-4">
+            <div className="flex justify-between text-sm text-on-surface-variant">
+              <span>Subtotal ({totalItems} Items)</span>
+              <span>{formatMoney(subNum)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-on-surface-variant">
+              <span>Archival Fee</span>
+              <span>{formatMoney(0)}</span>
+            </div>
+            <div className="flex justify-between text-on-surface-variant">
+              <span>Estimated Tax</span>
+              <span>{formatMoney(0)}</span>
+            </div>
+            <div className="pt-4 border-t border-outline-variant/30 flex justify-between items-baseline">
+              <span className="font-headline text-2xl text-primary italic">Total</span>
+              <span className="font-headline text-4xl text-primary italic">{formatMoney(subNum)}</span>
+            </div>
+          </div>
+          <button type="button" className="w-full primary-gradient text-on-primary py-4 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 group" onClick={onProceedCheckout}>
+            Proceed to Checkout <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+          <p className="text-[10px] text-center text-on-surface-variant leading-relaxed">
+            Secure SSL Encrypted Checkout. <br/> Read our <a href="#" className="underline">Archive Ethics</a> and Shipping Policy.
+          </p>
+        </div>
+      </aside>
+    </div>
+
+    <div className="space-y-12">
+      <div className="flex justify-between items-end border-b border-outline-variant/15 pb-4">
+        <h2 className="font-headline text-4xl text-primary italic">The Curated Wishlist</h2>
+        <button type="button" onClick={onToggleExpanded} className="text-[10px] font-bold uppercase tracking-widest text-primary border-b border-primary">{showAll ? 'Show Less' : `View All (${cartBooks.length})`}</button>
+      </div>
+      {savedBooks.length > 0 ? (
+        <div className="space-y-4 rounded-2xl border border-outline-variant/15 bg-surface-container-low p-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-headline text-2xl text-primary italic">Saved for Later</h3>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{savedBooks.length} Items</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {savedBooks.map(book => (
+              <div key={book.id} className="space-y-6">
+                <div className="relative">
+                  <BookCard book={book} variant="wishlist" />
+                  <button 
+                    type="button" 
+                    onClick={() => onRemoveFromWishlist(book)}
+                    className="absolute top-2 right-2 p-2 rounded-full bg-background/80 backdrop-blur-sm text-on-surface-variant hover:text-primary hover:bg-background transition-all group"
+                    title="Remove from wishlist"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <button type="button" onClick={() => onMoveSavedToCart(book)} className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:underline flex justify-end">
+                  Move to Cart
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+        {summaryBooks.map(book => (
+          <div key={book.id} className="space-y-6">
+            <BookCard book={book} variant="wishlist" />
+            <button type="button" onClick={onBrowseCatalog} className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:underline flex justify-end">
+              Browse Library
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+};
+
+const SubscriptionPage = ({
+  plans,
+  status,
+  onSubscribe,
+  actionError,
+  catalogTotal,
+  billingCycle,
+  onToggleBillingCycle,
+}: {
+  plans: UiSubscriptionPlan[];
+  status: SubscriptionStatusRow | null;
+  onSubscribe: (planId: string) => void;
+  actionError?: string;
+  catalogTotal: number;
+  billingCycle: 'annual' | 'monthly';
+  onToggleBillingCycle: () => void;
+}) => (
+  <div className="max-w-screen-2xl mx-auto px-8 py-20 space-y-20">
+    <section className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-10 items-stretch">
+      <div className="relative overflow-hidden rounded-[2rem] border border-outline-variant/20 bg-surface-container-low p-10 md:p-14 book-shadow">
+        <div className="absolute inset-0 opacity-60 pointer-events-none" aria-hidden="true">
+          <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+          <div className="absolute bottom-0 left-0 h-56 w-56 rounded-full bg-tertiary/10 blur-3xl" />
+        </div>
+        <div className="relative space-y-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-primary">
+            Subscription
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Curated access
+          </div>
+          <div className="space-y-5 max-w-3xl">
+            <h1 className="font-headline text-5xl md:text-7xl leading-[0.95] text-primary">
+              Elevate your reading experience.
+            </h1>
+            <p className="text-lg text-on-surface-variant leading-relaxed max-w-[62ch]">
+              Choose a plan that matches how you read. Unlock the public library, curated shelves, and a calmer archival experience with a membership built for sustained use.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-2xl bg-white/75 border border-outline-variant/20 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Public Titles</p>
+              <p className="mt-2 font-headline text-3xl text-primary">{catalogTotal}</p>
+            </div>
+            <div className="rounded-2xl bg-white/75 border border-outline-variant/20 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Membership</p>
+              <p className="mt-2 font-headline text-2xl text-primary">{status?.planName ?? 'Not active'}</p>
+            </div>
+            <div className="rounded-2xl bg-white/75 border border-outline-variant/20 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">State</p>
+              <p className="mt-2 font-headline text-2xl text-primary">{status?.active ? 'Active' : 'Available'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside className="rounded-[2rem] border border-outline-variant/20 bg-primary p-8 md:p-10 text-on-primary relative overflow-hidden book-shadow">
+        <div className="absolute inset-0 opacity-30 pointer-events-none" aria-hidden="true">
+          <div className="absolute -top-12 -right-12 h-40 w-40 rounded-full bg-white/20 blur-3xl" />
+          <div className="absolute bottom-0 left-0 h-44 w-44 rounded-full bg-black/10 blur-3xl" />
+        </div>
+        <div className="relative space-y-8">
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-container">Current Access</p>
+            <h2 className="font-headline text-3xl italic">{status?.planName ?? 'No active plan'}</h2>
+            <p className="text-sm text-secondary-container/90 leading-relaxed">
+              {status
+                ? `Status: ${status.active ? 'active' : status.status ?? 'inactive'}`
+                : 'Select a plan below to unlock membership and keep your reading flow uninterrupted.'}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-white/10 border border-white/15 p-5 space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-container">Billing view</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-container">{billingCycle}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <button type="button" onClick={onToggleBillingCycle} className="flex-1 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-left transition-colors hover:bg-white/15">
+                <p className="text-xs font-bold uppercase tracking-widest text-secondary-container">Toggle pricing view</p>
+                <p className="mt-1 text-sm text-secondary-container/90">Switch between annual and monthly commitment labels.</p>
+              </button>
+            </div>
+          </div>
+
+          <ul className="space-y-4 text-sm text-secondary-container/95">
+            {[
+              'Unlock curated reading access.',
+              'Keep your current shelf visible across sessions.',
+              'Move through the catalog without breaking the reading flow.',
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <Check className="mt-0.5 h-4 w-4 flex-none" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </section>
+
+    {actionError ? (
+      <p className="rounded-2xl border border-outline-variant/20 bg-surface-container-low px-5 py-4 text-sm text-on-surface-variant" role="status">
+        {actionError}
+      </p>
+    ) : null}
+
+    <section className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+      {plans.map((plan) => (
+        <div
+          key={plan.id}
+          className={`relative flex h-full flex-col rounded-[2rem] border p-8 md:p-10 shadow-sm transition-transform duration-200 ${
+            plan.recommended
+              ? 'border-primary bg-white shadow-2xl md:-translate-y-2'
+              : 'border-outline-variant/25 bg-surface-container-low'
+          }`}
+        >
+          {plan.recommended ? (
+            <div className="absolute -top-3 left-6 rounded-full bg-primary px-4 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-on-primary">
+              Most Popular
+            </div>
+          ) : null}
+
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">{plan.sub}</p>
+            <h3 className="font-headline text-3xl text-primary">{plan.title}</h3>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              Access designed for steady readers who want a cleaner, quieter archive.
+            </p>
+          </div>
+
+          <div className="mt-8 flex items-end gap-2">
+            <span className="font-headline text-5xl text-primary">${plan.price}</span>
+            <span className="pb-1 text-sm text-on-surface-variant">/{billingCycle === 'annual' ? 'annual access' : 'monthly access'}</span>
+          </div>
+
+          <ul className="mt-8 space-y-4">
+            {plan.features.map((feature) => (
+              <li key={feature} className="flex items-start gap-3 text-sm text-on-surface-variant">
+                <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Check className="h-3.5 w-3.5" />
+                </span>
+                <span className="leading-relaxed">{feature}</span>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            type="button"
+            className={`mt-8 w-full rounded-2xl px-5 py-4 text-xs font-bold uppercase tracking-[0.24em] transition-all ${
+              plan.recommended
+                ? 'primary-gradient text-on-primary shadow-lg hover:opacity-95'
+                : 'bg-surface-container-high text-primary hover:bg-surface-container-highest'
+            }`}
+            onClick={() => onSubscribe(plan.id)}
+          >
+            Choose {plan.title}
+          </button>
+        </div>
+      ))}
+    </section>
+
+    <section className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center pt-4">
+      <div className="relative aspect-[4/3] overflow-hidden rounded-[2rem] bg-on-background book-shadow">
+        <img src="https://picsum.photos/seed/archiving/800/800" className="h-full w-full object-cover opacity-50" referrerPolicy="no-referrer" alt="Archiving" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+        <div className="absolute bottom-6 left-6 right-6 md:bottom-8 md:left-8 md:right-auto md:max-w-[320px] rounded-2xl border border-white/15 bg-white/75 p-6 backdrop-blur-xl">
+          <p className="font-headline text-xl italic text-primary leading-snug">"A library is not a luxury but one of the necessities of life."</p>
+          <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">— Henry Ward Beecher</p>
+        </div>
+      </div>
+
+      <div className="space-y-8">
+        <div className="space-y-4">
+          <h2 className="font-headline text-4xl md:text-5xl text-primary">The Art of Digital Archiving</h2>
+          <p className="text-lg text-on-surface-variant leading-relaxed">
+            The subscription page should feel like a decision point, not a wall of pricing. This layout puts the current state, pricing view, and plan selection where readers can scan it quickly.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-4 md:gap-8">
+          <div className="rounded-2xl bg-surface-container-low p-6 md:p-8">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Public Titles</p>
+            <p className="mt-3 font-headline text-4xl text-primary">{catalogTotal}</p>
+          </div>
+          <div className="rounded-2xl bg-surface-container-low p-6 md:p-8">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Billing mode</p>
+            <p className="mt-3 font-headline text-3xl text-primary">{billingCycle === 'annual' ? 'Annual' : 'Monthly'}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+);
+
+const CheckoutPage = ({
+  setPage,
+  cartBooks,
+  subtotalLabel,
+  onFinalize,
+  onDownloadInvoice,
+  invoice,
+  checkoutError,
+}: {
+  setPage: (p: Page) => void;
+  cartBooks: Book[];
+  subtotalLabel: string;
+  onFinalize: (payment: {
+    cardholderName: string;
+    cardNumber: string;
+    expiry: string;
+    cvv: string;
+  }) => Promise<void>;
+  onDownloadInvoice: () => void;
+  invoice?: {
+    invoiceNumber: string;
+    orderId: string;
+    amountLabel: string;
+    dateLabel: string;
+    paymentLabel: string;
+  } | null;
+  checkoutError?: string;
+}) => {
+  const [cardholderName, setCardholderName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvv, setCvv] = useState('');
+
+  const submitPayment = () => {
+    void onFinalize({
+      cardholderName,
+      cardNumber,
+      expiry,
+      cvv,
+    });
+  };
+
+  return (
+  <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-12">
+    <div className="space-y-4">
+      <h1 className="font-headline text-6xl text-primary italic">Complete your acquisition</h1>
+      <p className="text-lg text-on-surface-variant">You are moments away from expanding your digital archive. Secure your selected volumes below.</p>
+    </div>
+
+    {checkoutError ? (
+      <p className="text-sm text-on-surface-variant" role="status">{checkoutError}</p>
+    ) : null}
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-16">
+      <div className="lg:col-span-3 space-y-12">
+        <section className="space-y-8">
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs font-bold">01</div>
+            <h2 className="font-headline text-3xl text-primary italic">Delivery Details</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">First Name</label>
+              <input type="text" placeholder="Julian" className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-sm outline-none" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Last Name</label>
+              <input type="text" placeholder="Barnes" className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-sm outline-none" />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Email Address</label>
+              <input type="email" placeholder="archivist@editorial.com" className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-sm outline-none" />
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-8">
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs font-bold">02</div>
+            <h2 className="font-headline text-3xl text-primary italic">Secure Payment</h2>
+          </div>
+          <div className="space-y-4">
+            <div className="p-6 rounded-xl border border-primary bg-white flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-5 h-5 rounded-full border-4 border-primary" />
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-primary">CREDIT OR DEBIT CARD</p>
+                  <p className="text-[10px] text-on-surface-variant">Visa, Mastercard, American Express</p>
+                </div>
+              </div>
+              <LayoutGrid className="w-5 h-5 text-on-surface-variant" />
+            </div>
+            <div className="p-6 rounded-xl border border-outline-variant/30 bg-surface-container-low flex items-center justify-between opacity-50">
+              <div className="flex items-center gap-4">
+                <div className="w-5 h-5 rounded-full border-2 border-outline-variant" />
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-on-surface-variant">PAYPAL</p>
+                  <p className="text-[10px] text-on-surface-variant">Direct wallet transfer</p>
+                </div>
+              </div>
+              <LayoutGrid className="w-5 h-5 text-on-surface-variant" />
+            </div>
+          </div>
+          <div className="bg-surface-container-low p-8 rounded-xl space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Cardholder Name</label>
+              <input
+                type="text"
+                value={cardholderName}
+                onChange={(e) => setCardholderName(e.target.value)}
+                placeholder="Name on card"
+                className="w-full bg-white border-none rounded-lg px-4 py-3 text-sm outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Card Number</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={cardNumber}
+                  onChange={(e) => setCardNumber(e.target.value)}
+                  placeholder="0000 0000 0000 0000"
+                  className="w-full bg-white border-none rounded-lg px-4 py-3 text-sm outline-none"
+                />
+                <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Expiry Date</label>
+                <input
+                  type="text"
+                  value={expiry}
+                  onChange={(e) => setExpiry(e.target.value)}
+                  placeholder="MM / YY"
+                  className="w-full bg-white border-none rounded-lg px-4 py-3 text-sm outline-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">CVV</label>
+                <input
+                  type="text"
+                  value={cvv}
+                  onChange={(e) => setCvv(e.target.value)}
+                  placeholder="123"
+                  className="w-full bg-white border-none rounded-lg px-4 py-3 text-sm outline-none"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside className="lg:col-span-2">
+        <div className="bg-surface-container-low p-12 rounded-2xl space-y-12">
+          <h3 className="font-headline text-4xl text-primary italic">Your Curation</h3>
+          <div className="space-y-8">
+            {cartBooks.slice(0, 4).map(item => (
+              <div key={item.id} className="flex gap-6">
+                <div className="w-20 aspect-[3/4] bg-on-background rounded-lg overflow-hidden book-shadow flex-shrink-0">
+                  <img src={item.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt={item.title} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-headline text-xl text-primary italic">{item.title}</h4>
+                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">E-BOOK (DIGITAL)</p>
+                  <p className="text-sm font-bold text-primary mt-2">{item.price}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-4 pt-8 border-t border-outline-variant/30">
+            <div className="flex justify-between text-sm text-on-surface-variant">
+              <span>SUBTOTAL</span>
+              <span>{subtotalLabel}</span>
+            </div>
+            <div className="flex justify-between text-sm text-on-surface-variant">
+              <span>ARCHIVAL TAX</span>
+              <span>{formatMoney(0)}</span>
+            </div>
+            <div className="flex justify-between items-baseline pt-4">
+              <span className="font-headline text-3xl text-primary italic">Total Investment</span>
+              <span className="font-headline text-5xl text-primary italic">{subtotalLabel}</span>
+            </div>
+          </div>
+          <button type="button" className="w-full primary-gradient text-on-primary py-5 rounded-xl font-bold uppercase tracking-widest text-xs shadow-xl active:scale-[0.98] transition-transform" onClick={submitPayment}>
+            FINALIZE & DOWNLOAD
+          </button>
+          {invoice ? (
+            <div className="bg-white rounded-xl border border-outline-variant/20 p-5 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Invoice Generated</p>
+              <p className="text-sm text-on-surface"><span className="font-semibold">Invoice:</span> {invoice.invoiceNumber}</p>
+              <p className="text-sm text-on-surface"><span className="font-semibold">Order:</span> {invoice.orderId}</p>
+              <p className="text-sm text-on-surface"><span className="font-semibold">Amount:</span> {invoice.amountLabel}</p>
+              <p className="text-sm text-on-surface"><span className="font-semibold">Paid via:</span> {invoice.paymentLabel}</p>
+              <button
+                type="button"
+                onClick={onDownloadInvoice}
+                className="mt-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-primary text-primary hover:bg-surface-container-high"
+              >
+                Download Bill
+              </button>
+            </div>
+          ) : null}
+          <div className="flex justify-center gap-8 pt-4">
+            <Globe className="w-5 h-5 text-on-surface-variant/50" />
+            <History className="w-5 h-5 text-on-surface-variant/50" />
+            <Highlighter className="w-5 h-5 text-on-surface-variant/50" />
+          </div>
+          <p className="text-[10px] text-center text-on-surface-variant uppercase tracking-widest">ENCRYPTED SSL TRANSACTION • DIGITAL DELIVERY</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+  );
+};
+
+const LoginPage = ({
+  setPage,
+  onSignIn,
+  onSignInAdmin,
+  onSignUp,
+}: {
+  setPage: (p: Page) => void;
+  onSignIn: (email: string, password: string) => Promise<void>;
+  onSignInAdmin: (email: string, password: string) => Promise<void>;
+  onSignUp: (
+    fullName: string,
+    email: string,
+    password: string,
+    phone: string
+  ) => Promise<void>;
+}) => {
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [adminMode, setAdminMode] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const resetErrors = () => setFormError('');
+
+  const submitLabel =
+    mode === 'signup' ? 'Create Account' : adminMode ? 'Admin Sign In' : 'Sign In to Library';
+
+  return (
+  <div className="min-h-screen flex">
+    <div className="hidden lg:flex w-1/2 bg-primary relative p-24 flex-col justify-between overflow-hidden">
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-transparent to-transparent z-10" />
+        <img src="https://picsum.photos/seed/loginbg/1200/1200" className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="Login Background" />
+      </div>
+      <div className="relative z-20 space-y-4">
+        <h1 className="text-4xl font-headline italic text-on-primary">Masuki Books</h1>
+        <p className="text-on-primary/70 max-w-[40ch]">Preserving the digital word through curated archival experiences.</p>
+      </div>
+      <div className="relative z-20 space-y-12">
+        <div className="space-y-4">
+          <p className="font-headline text-4xl text-on-primary italic leading-tight max-w-[15ch]">
+            "A library is not a luxury but one of the necessities of life."
+          </p>
+          <p className="text-xs font-bold uppercase tracking-widest text-on-primary/50">— HENRY WARD BEECHER</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex -space-x-3">
+            {[1, 2, 3].map(i => (
+              <img key={i} src={`https://picsum.photos/seed/u${i}/100/100`} className="w-10 h-10 rounded-full border-2 border-primary object-cover" referrerPolicy="no-referrer" alt="User" />
+            ))}
+          </div>
+          <p className="text-xs text-on-primary/70">Secure access to your private library</p>
+        </div>
+      </div>
+    </div>
+    <div className="w-full lg:w-1/2 bg-white p-8 md:p-24 flex items-center justify-center">
+      <div className="w-full max-w-md space-y-12">
+        <div className="space-y-4">
+          <h2 className="font-headline text-5xl text-primary italic">
+            {mode === 'signup' ? 'Join The Archive' : 'Welcome Back'}
+          </h2>
+          <p className="text-on-surface-variant">
+            {mode === 'signup'
+              ? 'Create your Masuki account and start reading instantly.'
+              : 'Sign in to your private archive collection.'}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-container-low p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('signin');
+              setAdminMode(false);
+              resetErrors();
+            }}
+            className={`rounded-lg py-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+              mode === 'signin' ? 'bg-primary text-on-primary' : 'text-primary hover:bg-surface-container-high'
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('signup');
+              setAdminMode(false);
+              resetErrors();
+            }}
+            className={`rounded-lg py-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+              mode === 'signup' ? 'bg-primary text-on-primary' : 'text-primary hover:bg-surface-container-high'
+            }`}
+          >
+            Register
+          </button>
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-outline-variant/30" /></div>
+          <div className="relative flex justify-center text-xs uppercase tracking-widest text-on-surface-variant">
+            <span className="bg-white px-4">SECURE AUTHENTICATION</span>
+          </div>
+        </div>
+        <form
+          className="space-y-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setFormError('');
+            setBusy(true);
+            void (async () => {
+              try {
+                if (mode === 'signup') {
+                  if (password !== confirmPassword) {
+                    throw new Error('Password confirmation does not match.');
+                  }
+                  await onSignUp(fullName, email, password, phone);
+                  setPage('personal-library');
+                  return;
+                }
+
+                if (adminMode) {
+                  await onSignInAdmin(email, password);
+                  setPage('admin');
+                  return;
+                }
+
+                await onSignIn(email, password);
+                const signedIn = getStoredUser();
+                if ((signedIn?.role ?? '').toUpperCase() === 'ADMIN') {
+                  setPage('admin');
+                } else {
+                  setPage('personal-library');
+                }
+              } catch (er) {
+                setFormError(er instanceof Error ? er.message : 'Authentication failed.');
+              } finally {
+                setBusy(false);
+              }
+            })();
+          }}
+        >
+          {formError ? (
+            <p className="text-xs text-on-surface-variant" role="alert">{formError}</p>
+          ) : null}
+          {mode === 'signup' ? (
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-on-surface-variant">Full Name</label>
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} type="text" placeholder="John Reader" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" required />
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-on-surface-variant">Email Address</label>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="archivist@editorial.com" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" required />
+          </div>
+          {mode === 'signup' ? (
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-on-surface-variant">Phone Number (optional)</label>
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" placeholder="+91 98XXXXXXXX" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" />
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            <div className="flex justify-between items-baseline">
+              <label className="text-xs font-bold text-on-surface-variant">Password</label>
+              {mode === 'signin' ? (
+                <button
+                  type="button"
+                  className="text-[10px] font-bold text-primary hover:underline"
+                  onClick={() => {
+                    window.location.href = 'mailto:support@masukibooks.com?subject=Password%20reset';
+                  }}
+                >
+                  Forgot?
+                </button>
+              ) : null}
+            </div>
+            <div className="relative">
+              <input value={password} onChange={(e) => setPassword(e.target.value)} type={showPassword ? 'text' : 'password'} placeholder="••••••••" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" minLength={8} required />
+              <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          {mode === 'signup' ? (
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-on-surface-variant">Confirm Password</label>
+              <div className="relative">
+                <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type={showConfirmPassword ? 'text' : 'password'} placeholder="••••••••" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" minLength={8} required />
+                <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={adminMode}
+                onChange={(e) => setAdminMode(e.target.checked)}
+                className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary"
+              />
+              <span className="text-xs text-on-surface-variant group-hover:text-primary transition-colors">Use Admin Login</span>
+            </label>
+          )}
+
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <input type="checkbox" className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary" />
+            <span className="text-xs text-on-surface-variant group-hover:text-primary transition-colors">Stay authenticated for 30 days</span>
+          </label>
+          <button type="submit" disabled={busy} className="w-full primary-gradient text-on-primary py-4 rounded-xl font-bold text-sm shadow-xl active:scale-[0.98] transition-transform disabled:opacity-70">
+            {busy ? 'Please wait...' : submitLabel}
+          </button>
+        </form>
+        <p className="text-center text-sm text-on-surface-variant">
+          {mode === 'signup' ? (
+            <>
+              Already registered?{' '}
+              <button
+                type="button"
+                className="font-bold text-primary hover:underline"
+                onClick={() => {
+                  setMode('signin');
+                  setAdminMode(false);
+                  resetErrors();
+                }}
+              >
+                Sign in now
+              </button>
+            </>
+          ) : (
+            <>
+              Not a member yet?{' '}
+              <button
+                type="button"
+                className="font-bold text-primary hover:underline"
+                onClick={() => {
+                  setMode('signup');
+                  setAdminMode(false);
+                  resetErrors();
+                }}
+              >
+                Create account
+              </button>
+            </>
+          )}
+        </p>
+      </div>
+    </div>
+  </div>
+);
+};
+
+const AdminVaultPage = ({
+  books,
+  onEditBook,
+  onUploadBookFile,
+  onDeleteBooks,
+  adminActionError,
+  pagination,
+}: {
+  books: Book[];
+  onEditBook: (bookId: string) => void;
+  onUploadBookFile: (bookId: string) => void;
+  onDeleteBooks: (bookIds: string[]) => void;
+  adminActionError?: string;
+  pagination: {
+    onPrev: () => void;
+    onNext: () => void;
+    onSelectPage: (page1Based: number) => void;
+    currentPage1Based: number;
+    totalPages: number;
+    totalElements: number;
+  };
+}) => {
+  const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const filteredBooks = useMemo(() => {
+    let result = [...books].sort((a, b) => {
+      const dateA = new Date(a.lastModified || 0).getTime();
+      const dateB = new Date(b.lastModified || 0).getTime();
+      return dateB - dateA; // Most recent first
+    });
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(b =>
+        (b.title?.toLowerCase() ?? '').includes(query) ||
+        (b.author?.toLowerCase() ?? '').includes(query) ||
+        (b.ref?.toLowerCase() ?? '').includes(query)
+      );
+    }
+
+    return result;
+  }, [books, searchQuery]);
+
+  return (
+  <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-12">
+    <div className="flex justify-between items-end">
+      <div className="space-y-4">
+        <h1 className="font-headline text-6xl text-primary italic">Curating the Digital Vault</h1>
+        <p className="text-lg text-on-surface-variant max-w-[60ch]">
+          Manage the public collection with archival precision. Refine metadata, and maintain the integrity of our shared heritage.
+        </p>
+      </div>
+    </div>
+
+    {adminActionError ? (
+      <p className="text-sm text-on-surface-variant" role="status">{adminActionError}</p>
+    ) : null}
+
+    <div className="space-y-4">
+      <div className="flex gap-4">
+        <div className="flex-grow relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+          <input
+            type="text"
+            placeholder="Filter by title, author, or ISBN..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-surface-container-low border-none rounded-xl pl-12 pr-4 py-4 text-sm outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {selectedBookIds.size > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm(`Delete ${selectedBookIds.size} book(s)? This cannot be undone.`)) {
+                onDeleteBooks(Array.from(selectedBookIds));
+                setSelectedBookIds(new Set());
+              }
+            }}
+            className="bg-red-600/20 text-red-700 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-red-600/30 transition-colors border border-red-600/30"
+          >
+            <X className="w-4 h-4" /> Delete {selectedBookIds.size}
+          </button>
+        )}
+      </div>
+    </div>
+
+    <div className="bg-white rounded-2xl overflow-hidden border border-outline-variant/15">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="bg-surface-container-low text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+            <th className="px-8 py-6">
+              <input
+                type="checkbox"
+                checked={selectedBookIds.size === filteredBooks.length && filteredBooks.length > 0}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedBookIds(new Set(filteredBooks.map(b => b.id)));
+                  } else {
+                    setSelectedBookIds(new Set());
+                  }
+                }}
+                className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer"
+              />
+            </th>
+            <th className="px-8 py-6">Cover</th>
+            <th className="px-8 py-6">Manuscript</th>
+            <th className="px-8 py-6">Details</th>
+            <th className="px-8 py-6">Last Modified</th>
+            <th className="px-8 py-6 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-outline-variant/15">
+          {filteredBooks.map(item => (
+            <tr key={item.id} className="group hover:bg-surface-container-low/50 transition-colors">
+              <td className="px-8 py-6">
+                <input
+                  type="checkbox"
+                  checked={selectedBookIds.has(item.id)}
+                  onChange={(e) => {
+                    const newSet = new Set(selectedBookIds);
+                    if (e.target.checked) {
+                      newSet.add(item.id);
+                    } else {
+                      newSet.delete(item.id);
+                    }
+                    setSelectedBookIds(newSet);
+                  }}
+                  className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer"
+                />
+              </td>
+              <td className="px-8 py-6 align-top">
+                <div className="overflow-hidden rounded-lg relative bg-surface-container-highest book-shadow aspect-[3/4] w-28 shrink-0 border border-outline-variant/10">
+                  <img src={item.image} alt={`${item.title} cover`} referrerPolicy="no-referrer" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                </div>
+              </td>
+              <td className="px-8 py-6 align-top">
+                <div className="space-y-1 pt-2">
+                  <p className="font-headline text-xl text-primary italic">{item.title}</p>
+                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Ref: {item.ref}</p>
+                </div>
+              </td>
+              <td className="px-8 py-6">
+                <p className="text-sm font-medium text-primary">{item.author}</p>
+              </td>
+              <td className="px-8 py-6 text-sm text-on-surface-variant">{item.lastModified}</td>
+              <td className="px-8 py-6 text-right flex items-center justify-end gap-3">
+                <button type="button" title="Edit book" onClick={() => onEditBook(item.id)} className="text-on-surface-variant hover:text-primary transition-colors">
+                  <Pencil className="w-5 h-5" />
+                </button>
+                <button type="button" title="Upload file" onClick={() => onUploadBookFile(item.id)} className="text-on-surface-variant hover:text-primary transition-colors">
+                  <LayoutGrid className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  title="Delete book"
+                  onClick={() => {
+                    if (confirm(`Delete "${item.title}"? This cannot be undone.`)) {
+                      onDeleteBooks([item.id]);
+                    }
+                  }}
+                  className="text-on-surface-variant hover:text-red-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <div className="flex justify-between items-center text-xs text-on-surface-variant">
+      <span>Showing {filteredBooks.length} of {pagination.totalElements} archived volumes • Sorted by most recent</span>
+      <div className="flex gap-2">
+        <button type="button" onClick={pagination.onPrev} className="w-8 h-8 rounded-full border border-outline-variant/30 flex items-center justify-center hover:border-primary transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+        {compactPaginationSlots(pagination.totalPages, pagination.currentPage1Based).map((slot, i) => (
+          <button
+            key={i}
+            type="button"
+            disabled={slot === '…'}
+            onClick={() => typeof slot === 'number' && pagination.onSelectPage(slot)}
+            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${slot === pagination.currentPage1Based ? 'bg-primary text-on-primary' : 'hover:bg-surface-container-high'}`}
+          >
+            {slot}
+          </button>
+        ))}
+        <button type="button" onClick={pagination.onNext} className="w-8 h-8 rounded-full border border-outline-variant/30 flex items-center justify-center hover:border-primary transition-colors"><ChevronRight className="w-4 h-4" /></button>
+      </div>
+    </div>
+  </div>
+  );
+};
+
+const UserProfilePage = ({
+  user,
+}: {
+  user: {
+    userId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+  } | null;
+}) => {
+  const fullName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Reader';
+  const initials = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase() || 'R';
+
+  return (
+    <div className="max-w-screen-xl mx-auto px-8 py-12 space-y-10">
+      <div className="space-y-4">
+        <h1 className="font-headline text-6xl text-primary italic">My Profile</h1>
+        <p className="text-lg text-on-surface-variant max-w-[65ch]">
+          Manage your account details and view your registered information.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-8">
+        <aside className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-8">
+          <div className="space-y-5">
+            <div className="w-20 h-20 rounded-full bg-primary text-on-primary flex items-center justify-center text-2xl font-bold tracking-wider">
+              {initials}
+            </div>
+            <div className="space-y-1">
+              <h2 className="font-headline text-3xl text-primary italic">{fullName}</h2>
+              <p className="text-sm text-on-surface-variant">{user?.email ?? 'No email available'}</p>
+            </div>
+            <div className="pt-3">
+              <span className="rounded-full bg-white border border-outline-variant/30 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                Role: {(user?.role ?? 'USER').toUpperCase()}
+              </span>
+            </div>
+          </div>
+        </aside>
+
+        <section className="rounded-2xl border border-outline-variant/20 bg-white p-8">
+          <h3 className="font-headline text-3xl text-primary italic mb-6">Account Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">First Name</p>
+              <p className="text-sm text-on-surface">{user?.firstName ?? '-'}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Last Name</p>
+              <p className="text-sm text-on-surface">{user?.lastName ?? '-'}</p>
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Email</p>
+              <p className="text-sm text-on-surface break-all">{user?.email ?? '-'}</p>
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">User ID</p>
+              <p className="text-sm text-on-surface break-all">{user?.userId ?? '-'}</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+};
+
+const AdminAddBookPage = ({
+  categories,
+  busy,
+  error,
+  onCancel,
+  onCreateDefaultCategory,
+  onSubmit,
+}: {
+  categories: CategoryRow[];
+  busy: boolean;
+  error?: string;
+  onCancel: () => void;
+  onCreateDefaultCategory: () => Promise<void>;
+  onSubmit: (payload: {
+    categoryId: string;
+    title: string;
+    author: string;
+    sku: string;
+    format: string;
+    price: number;
+    contentType?: string;
+    status?: string;
+    description?: string;
+    file?: File;
+    fileUrl?: string;
+  }) => Promise<void>;
+}) => {
+  const [categoryId, setCategoryId] = useState('');
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [sku, setSku] = useState(generateDraftSku());
+  const [format, setFormat] = useState('ebook');
+  const [price, setPrice] = useState('9.99');
+  const [contentType, setContentType] = useState('digital');
+  const [status, setStatus] = useState('published');
+  const [description, setDescription] = useState('');
+  const [bookFile, setBookFile] = useState<File | null>(null);
+  const [fileUrl, setFileUrl] = useState('');
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    if (!categoryId && categories.length > 0) {
+      setCategoryId(categories[0].categoryId);
+    }
+  }, [categories, categoryId]);
+
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="font-headline text-5xl text-primary italic">Add New Manuscript</h1>
+          <p className="text-on-surface-variant mt-2">
+            Fill all book metadata fields below and add either a direct book URL or upload a file. You can also provide both.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-5 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold hover:bg-surface-container-low transition-colors"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+
+      {error ? <p className="text-sm text-on-surface-variant" role="alert">{error}</p> : null}
+      {formError ? <p className="text-sm text-on-surface-variant" role="alert">{formError}</p> : null}
+      {categories.length === 0 ? (
+        <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-4 flex items-center justify-between gap-4">
+          <p className="text-sm text-on-surface-variant">No categories found. Create one to enable selection.</p>
+          <button
+            type="button"
+            onClick={() => {
+              void onCreateDefaultCategory();
+            }}
+            className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-outline-variant/30 text-primary hover:bg-surface-container-high transition-colors"
+          >
+            Create Default Category
+          </button>
+        </div>
+      ) : null}
+
+      <form
+        className="bg-white rounded-2xl border border-outline-variant/20 p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setFormError('');
+          void (async () => {
+            const parsedPrice = Number(price);
+            if (!categoryId) {
+              setFormError('Category is required.');
+              return;
+            }
+            if (!title.trim() || !author.trim() || !sku.trim()) {
+              setFormError('Title, author, and SKU are required.');
+              return;
+            }
+            const trimmedUrl = fileUrl.trim();
+            if (!bookFile && !trimmedUrl) {
+              setFormError('Provide either a book URL or upload a file.');
+              return;
+            }
+            if (trimmedUrl && !/^https?:\/\//i.test(trimmedUrl)) {
+              setFormError('Book URL must start with http:// or https://');
+              return;
+            }
+            if (bookFile) {
+              const lowerName = bookFile.name.toLowerCase();
+              if (!lowerName.endsWith('.pdf') && !lowerName.endsWith('.epub')) {
+                setFormError('Only PDF or EPUB files are supported for upload.');
+                return;
+              }
+            }
+            if (Number.isNaN(parsedPrice) || parsedPrice <= 0) {
+              setFormError('Price must be a valid positive number.');
+              return;
+            }
+
+            await onSubmit({
+              categoryId,
+              title: title.trim(),
+              author: author.trim(),
+              sku: sku.trim(),
+              format: format.trim(),
+              price: parsedPrice,
+              contentType: contentType.trim(),
+              status: status.trim(),
+              description: description.trim() || undefined,
+              file: bookFile ?? undefined,
+              fileUrl: trimmedUrl || undefined,
+            });
+          })();
+        }}
+      >
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Category</span>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none"
+            required
+          >
+            <option value="" disabled>Select category</option>
+            {categories.map((c) => (
+              <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Title</span>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Author</span>
+          <input value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">SKU</span>
+          <input value={sku} onChange={(e) => setSku(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Format</span>
+          <input value={format} onChange={(e) => setFormat(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Price</span>
+          <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" min="0.01" step="0.01" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Content Type</span>
+          <input value={contentType} onChange={(e) => setContentType(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Status</span>
+          <input value={status} onChange={(e) => setStatus(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" />
+        </label>
+
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Book URL (optional)</span>
+          <input
+            type="url"
+            placeholder="https://designrr.page/?id=..."
+            value={fileUrl}
+            onChange={(e) => setFileUrl(e.target.value)}
+            className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none"
+          />
+          <p className="text-xs text-on-surface-variant">Use this for hosted files like Designrr links.</p>
+          <p className="text-xs text-on-surface-variant">If both URL and file are provided, URL is used for reading and the file is downloaded locally.</p>
+        </label>
+
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Book File Upload (optional)</span>
+          <input
+            type="file"
+            accept="application/pdf,.pdf,application/epub+zip,.epub"
+            onChange={(e) => setBookFile(e.target.files?.[0] ?? null)}
+            className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none"
+          />
+          <p className="text-xs text-on-surface-variant">If provided, file is stored at Supabase S3 path: <span className="font-semibold">books/&lt;productId&gt;/files/...</span></p>
+        </label>
+
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Description</span>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none resize-y" />
+        </label>
+
+        <div className="md:col-span-2 flex items-center justify-end gap-3 pt-2">
+          <button type="button" onClick={onCancel} className="px-5 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold hover:bg-surface-container-low transition-colors">Cancel</button>
+          <button type="submit" disabled={busy} className="primary-gradient text-on-primary px-6 py-3 rounded-xl font-bold text-sm shadow-xl disabled:opacity-70">
+            {busy ? 'Saving...' : 'Create Book'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const AdminEditBookPage = ({
+  book,
+  categories,
+  busy,
+  error,
+  onCancel,
+  onSubmit,
+}: {
+  book: ProductRow;
+  categories: CategoryRow[];
+  busy: boolean;
+  error?: string;
+  onCancel: () => void;
+  onSubmit: (payload: {
+    categoryId: string;
+    title: string;
+    author: string;
+    sku: string;
+    format: string;
+    price: number;
+    contentType?: string;
+    status?: string;
+    description?: string;
+  }) => Promise<void>;
+}) => {
+  const [categoryId, setCategoryId] = useState(book.categoryId || '');
+  const [title, setTitle] = useState(book.title || '');
+  const [author, setAuthor] = useState(book.author || '');
+  const [sku, setSku] = useState(book.sku || '');
+  const [format, setFormat] = useState(book.format || 'ebook');
+  const [price, setPrice] = useState((book.price || 0).toString());
+  const [contentType, setContentType] = useState(book.contentType || 'digital');
+  const [status, setStatus] = useState(book.status || 'published');
+  const [description, setDescription] = useState(book.description || '');
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    if (!categoryId && categories.length > 0) {
+      setCategoryId(categories[0].categoryId);
+    }
+  }, [categories, categoryId]);
+
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="font-headline text-5xl text-primary italic">Edit Manuscript</h1>
+          <p className="text-on-surface-variant mt-2">
+            Update book metadata fields below. To change the book file, use the upload option from the dashboard.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-5 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold hover:bg-surface-container-low transition-colors"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+
+      {error ? <p className="text-sm text-on-surface-variant" role="alert">{error}</p> : null}
+      {formError ? <p className="text-sm text-on-surface-variant" role="alert">{formError}</p> : null}
+
+      <form
+        className="bg-white rounded-2xl border border-outline-variant/20 p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setFormError('');
+          void (async () => {
+            const parsedPrice = Number(price);
+            if (!categoryId) {
+              setFormError('Category is required.');
+              return;
+            }
+            if (!title.trim() || !author.trim() || !sku.trim()) {
+              setFormError('Title, author, and SKU are required.');
+              return;
+            }
+            if (Number.isNaN(parsedPrice) || parsedPrice <= 0) {
+              setFormError('Price must be a valid positive number.');
+              return;
+            }
+
+            await onSubmit({
+              categoryId,
+              title: title.trim(),
+              author: author.trim(),
+              sku: sku.trim(),
+              format: format.trim(),
+              price: parsedPrice,
+              contentType: contentType.trim(),
+              status: status.trim(),
+              description: description.trim() || undefined,
+            });
+          })();
+        }}
+      >
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Category</span>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none"
+            required
+          >
+            <option value="" disabled>Select category</option>
+            {categories.map((c) => (
+              <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Title</span>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Author</span>
+          <input value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">SKU</span>
+          <input value={sku} onChange={(e) => setSku(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Format</span>
+          <input value={format} onChange={(e) => setFormat(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Price</span>
+          <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" min="0.01" step="0.01" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Content Type</span>
+          <input value={contentType} onChange={(e) => setContentType(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Status</span>
+          <input value={status} onChange={(e) => setStatus(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" />
+        </label>
+
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Description</span>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none resize-y" />
+        </label>
+
+        <div className="md:col-span-2 flex items-center justify-end gap-3 pt-2">
+          <button type="button" onClick={onCancel} className="px-5 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold hover:bg-surface-container-low transition-colors">Cancel</button>
+          <button type="submit" disabled={busy} className="primary-gradient text-on-primary px-6 py-3 rounded-xl font-bold text-sm shadow-xl disabled:opacity-70">
+            {busy ? 'Saving...' : 'Update Book'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+// --- Main App ---
+
+export default function App() {
+  const [page, setPage] = useState<Page>(getInitialPage);
+  const [subscriptionActionError, setSubscriptionActionError] = useState('');
+  const [publicActionMsg, setPublicActionMsg] = useState('');
+  const [libraryActionMsg, setLibraryActionMsg] = useState('');
+  const [adminActionError, setAdminActionError] = useState('');
+  const [optimisticallyDeletedBookIds, setOptimisticallyDeletedBookIds] = useState<Set<string>>(new Set());
+  const [adminBookSaving, setAdminBookSaving] = useState(false);
+  const [checkoutErr, setCheckoutErr] = useState('');
+  const [landingLibraryTab, setLandingLibraryTab] = useState<'reading' | 'collections'>('reading');
+  const [landingLibrarySort, setLandingLibrarySort] = useState('Recent Activity');
+  const [publicSortMode, setPublicSortMode] = useState<'latest' | 'title'>('latest');
+  const [publicViewMode, setPublicViewMode] = useState<'grid' | 'list'>('grid');
+  const [billingCycle, setBillingCycle] = useState<'annual' | 'monthly'>('annual');
+  const [savedForLater, setSavedForLater] = useState<Book[]>([]);
+  const [wishlistExpanded, setWishlistExpanded] = useState(false);
+  const [wishlistActionMsg, setWishlistActionMsg] = useState('');
+  const [latestInvoice, setLatestInvoice] = useState<{
+    invoiceNumber: string;
+    orderId: string;
+    amountLabel: string;
+    dateLabel: string;
+    paymentLabel: string;
+  } | null>(null);
+  const [cartUiBooks, setCartUiBooks] = useState<Book[]>([]);
+  const [adminEditingBookId, setAdminEditingBookId] = useState<string | null>(null);
+  const [adminBookEditSaving, setAdminBookEditSaving] = useState(false);
+
+  const { user, signIn, signInAdmin, signUp, signOut, initializing, isAuthenticated } = useAuth();
+  const isAdminUser = (user?.role ?? '').toUpperCase() === 'ADMIN';
+  const publicPag = usePaginationState(0, PUBLIC_PAGE_SIZE);
+  const adminPag = usePaginationState(0, 50);
+  const ordersPag = usePaginationState(0, 20);
+  const protectedPages: Page[] = ['public-library', 'profile', 'personal-library', 'wishlist', 'subscription', 'checkout', 'admin', 'admin-add-book', 'admin-edit-book', 'reader'];
+
+  const navigateToPage = (target: Page) => {
+    if (!isAuthenticated && protectedPages.includes(target)) {
+      setPage('login');
+      return;
+    }
+    setPage(target);
+  };
+
+  useEffect(() => {
+    return subscribeAppErrors((evt) => {
+      console.warn("[errorBus]", {
+        topic: evt.topic,
+        message: evt.message,
+        endpoint: evt.endpoint,
+        method: evt.method,
+        requestId: evt.requestId,
+        payloadSummary: evt.payloadSummary,
+        toastCandidate: evt.toastReady,
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SAVED_WISHLIST_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Book[];
+      if (Array.isArray(parsed)) {
+        setSavedForLater(parsed);
+      }
+    } catch {
+      // ignore invalid local cache
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SAVED_WISHLIST_STORAGE_KEY, JSON.stringify(savedForLater));
+    } catch {
+      // ignore storage errors
+    }
+  }, [savedForLater]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(LAST_PAGE_STORAGE_KEY, page);
+    } catch {
+      // ignore storage errors
+    }
+  }, [page]);
+
+  const catalogState = useFetch(() => fetchMergedPublicCatalog(), []);
+  const catalogRows = catalogState.data ?? [];
+
+  useEffect(() => {
+    publicPag.syncClientPagination(catalogRows.length, PUBLIC_PAGE_SIZE);
+    // syncClientPagination is stable; only re-sync when catalog size changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogRows.length]);
+
+  const newReleases = useMemo(
+    () => catalogRows.slice(0, 4).map(publicRowToUiBook),
+    [catalogRows]
+  );
+
+  const catalogBooks = useMemo(() => {
+    const mapped = catalogRows.map(publicRowToUiBook);
+    if (publicSortMode === 'title') {
+      return [...mapped].sort((left, right) => left.title.localeCompare(right.title));
+    }
+    return mapped;
+  }, [catalogRows, publicSortMode]);
+
+  const publicBooks = useMemo(() => {
+    const start = publicPag.page * PUBLIC_PAGE_SIZE;
+    return catalogBooks
+      .slice(start, start + PUBLIC_PAGE_SIZE)
+      .map((book) => book);
+  }, [catalogBooks, publicPag.page]);
+
+  const libState = useFetch(
+    () => {
+      if (initializing) return Promise.resolve([] as LibraryRow[]);
+      if (!user) return Promise.resolve([]);
+      return getUserLibraryPage(0, 20);
+    },
+    [user?.userId, initializing]
+  );
+
+  const cartState = useFetch(
+    () =>
+      initializing || !user
+        ? Promise.resolve(null as CartRow | null)
+        : getCart().catch(() => null),
+    [user?.userId, initializing]
+  );
+
+  const plansState = useFetch(() => getSubscriptionPlansPublic(), []);
+
+  const subStatusState = useFetch(
+    () => (initializing || !user ? Promise.resolve(null as SubscriptionStatusRow | null) : getMySubscriptionStatus().catch(() => null)),
+    [user?.userId, initializing]
+  );
+
+  const categoriesState = useFetch(
+    () => (initializing || !user ? Promise.resolve([] as CategoryRow[]) : getUserCategories().catch(() => [] as CategoryRow[])),
+    [user?.userId, initializing]
+  );
+
+  const adminFetch = useFetch(
+    () => {
+      if (initializing) return Promise.resolve(null as PagedResult<ProductRow> | null);
+      if ((page !== 'admin' && page !== 'admin-edit-book') || (user?.role ?? '').toUpperCase() !== 'ADMIN') {
+        return Promise.resolve(null);
+      }
+      return getAdminBooksPaged(adminPag.page, adminPag.size).catch(() => null);
+    },
+    [page, user?.userId, user?.role, adminPag.page, adminPag.size, initializing]
+  );
+
+  const adminOrdersState = useFetch(
+    () => {
+      if (initializing) return Promise.resolve(null as PagedResult<AdminOrderRow> | null);
+      if ((page !== 'admin' && page !== 'personal-library') || (user?.role ?? '').toUpperCase() !== 'ADMIN') {
+        return Promise.resolve(null);
+      }
+      return getAdminOrdersPaged(ordersPag.page, ordersPag.size).catch(() => null);
+    },
+    [page, user?.userId, user?.role, ordersPag.page, ordersPag.size, initializing]
+  );
+
+  useEffect(() => {
+    const isAdminPage = page === 'admin' || page === 'personal-library';
+    if (!isAdminPage || (user?.role ?? '').toUpperCase() !== 'ADMIN') return;
+
+    const refreshAdminOrders = () => {
+      adminOrdersState.refetch();
+    };
+
+    refreshAdminOrders();
+
+    const timer = window.setInterval(refreshAdminOrders, ADMIN_STATS_REFRESH_MS);
+    const handleFocus = () => refreshAdminOrders();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAdminOrders();
+      }
+    };
+    const handleOrderActivity = () => refreshAdminOrders();
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener(ORDER_ACTIVITY_EVENT, handleOrderActivity as EventListener);
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener(ORDER_ACTIVITY_EVENT, handleOrderActivity as EventListener);
+    };
+  }, [page, user?.role, adminOrdersState.refetch]);
+
+  const adminPublicLibraryState = useFetch(
+    () => {
+      if (initializing) return Promise.resolve([] as { publicLibraryId?: string }[]);
+      if (page !== 'admin' || (user?.role ?? '').toUpperCase() !== 'ADMIN') {
+        return Promise.resolve([] as { publicLibraryId?: string }[]);
+      }
+      return getAdminPublicLibrary().catch(() => [] as { publicLibraryId?: string }[]);
+    },
+    [page, user?.userId, user?.role, initializing]
+  );
+
+  useEffect(() => {
+    const d = adminFetch.data;
+    if (d) adminPag.applyResult(d);
+    // applyResult is stable; avoid depending on whole pagination object identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminFetch.data]);
+
+  const personalBooks = useMemo(
+    () => (libState.data ?? []).map(libraryRowToUiBook),
+    [libState.data]
+  );
+  const purchasedPersonalBooks = useMemo(
+    () => personalBooks.filter((book) => (book.accessType ?? '').toLowerCase() === 'purchased'),
+    [personalBooks]
+  );
+  const readingBook =
+    purchasedPersonalBooks.find((b) => b.progress != null && b.progress > 0) ??
+    purchasedPersonalBooks[0];
+
+  const cart = cartState.data ?? null;
+  const cartBooks = useMemo(
+    () => (cart?.items ?? []).map(cartItemToUiBook),
+    [cart]
+  );
+
+  useEffect(() => {
+    // Keep optimistic removals hidden until backend cart no longer contains them.
+    setOptimisticallyDeletedBookIds((current) => {
+      if (current.size === 0) return current;
+      const serverIds = new Set(cartBooks.map((book) => book.cartItemId || book.id));
+      const next = new Set<string>();
+      let changed = false;
+
+      current.forEach((id) => {
+        if (serverIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      });
+
+      return changed ? next : current;
+    });
+  }, [cartBooks]);
+
+  useEffect(() => {
+    // Sync from backend, but exclude optimistically deleted items
+    setCartUiBooks(
+      cartBooks.filter((book) => !optimisticallyDeletedBookIds.has(book.cartItemId || book.id))
+    );
+  }, [cartBooks, optimisticallyDeletedBookIds]);
+  
+  const savedBookIds = useMemo(
+    () => new Set(savedForLater.map((book) => book.productId).filter(Boolean)),
+    [savedForLater]
+  );
+  
+  const activeCartBooks = useMemo(
+    () => cartUiBooks.filter((book) => {
+      // Exclude items that are in the saved-for-later list
+      return !savedBookIds.has(book.productId);
+    }),
+    [cartUiBooks, savedBookIds]
+  );
+
+  const uiPlans = useMemo(
+    () => (plansState.data ?? []).map(subscriptionRowToUiPlan),
+    [plansState.data]
+  );
+
+  const adminBooks = useMemo(
+    () =>
+      (adminFetch.data?.content ?? [])
+        .filter((row) => !optimisticallyDeletedBookIds.has(String(row.productId ?? '').trim()))
+        .map(productRowToVaultBook),
+    [adminFetch.data, optimisticallyDeletedBookIds]
+  );
+
+  const adminOrderRows = useMemo(
+    () => adminOrdersState.data?.content ?? [],
+    [adminOrdersState.data]
+  );
+
+  const readerTitle = readingBook?.title || 'Reader';
+  const readerFormat = readingBook?.isFlipbook ? 'flipbook' : readingBook?.fileFormat;
+  const readerUrl = readingBook?.fileUrl ?? readingBook?.downloadUrl;
+
+  const handleBeginReading = () => {
+    if (readingBook?.isFlipbook && readingBook.fileUrl) {
+      window.open(readingBook.fileUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (readingBook) {
+      navigateToPage('reader');
+      return;
+    }
+    setLibraryActionMsg('Purchase a book to unlock reading access.');
+    navigateToPage('public-library');
+  };
+
+  const handleViewLandingDetails = () => {
+    navigateToPage('public-library');
+  };
+
+  const handleOpenReader = () => {
+    if (readingBook?.isFlipbook && readingBook.fileUrl) {
+      window.open(readingBook.fileUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (!readingBook) {
+      setLibraryActionMsg('Purchase a book to read it in your private library.');
+      return;
+    }
+    setLibraryActionMsg('');
+    navigateToPage('reader');
+  };
+
+  const handleOpenCatalog = () => {
+    navigateToPage('public-library');
+  };
+
+  const handleToggleBillingCycle = () => {
+    setBillingCycle((current) => (current === 'annual' ? 'monthly' : 'annual'));
+  };
+
+  const handlePublicSortToggle = () => {
+    setPublicSortMode((current) => (current === 'latest' ? 'title' : 'latest'));
+  };
+
+  const handlePublicViewMode = (mode: 'grid' | 'list') => {
+    setPublicViewMode(mode);
+  };
+
+  const handleWishlistMoveToWishlist = (book: Book) => {
+    setWishlistActionMsg('');
+    const isAlreadySaved = (savedForLater || []).some((item) => item.id === book.id);
+    
+    if (isAlreadySaved) {
+      setWishlistActionMsg('Item already in wishlist.');
+      setTimeout(() => setWishlistActionMsg(''), 3000);
+      return;
+    }
+    
+    setSavedForLater((current) => [...current, book]);
+    setWishlistActionMsg('Moved to wishlist.');
+    setTimeout(() => setWishlistActionMsg(''), 3000);
+    
+    if (book.cartItemId) {
+      handleRemoveCartLine(book.cartItemId);
+    }
+  };
+
+  const handleWishlistSaveForLater = (book: Book) => {
+    handleWishlistMoveToWishlist(book);
+  };
+
+  const handleMoveSavedToCart = (book: Book) => {
+    setWishlistActionMsg('');
+    // Remove from wishlist using consistent ID
+    setSavedForLater((current) => current.filter((item) => item.id !== book.id));
+    handleAddToCart(book);
+  };
+
+  const handleRemoveFromWishlist = (book: Book) => {
+    setWishlistActionMsg('');
+    // Use only the ID field as primary key for reliable matching
+    const bookIdToRemove = book.id;
+    console.log('[wishlist] Removing book:', { id: book.id, productId: book.productId, title: book.title });
+    
+    // Remove from state
+    setSavedForLater((current) => {
+      const beforeCount = current.length;
+      const updated = current.filter((item) => item.id !== bookIdToRemove);
+      const afterCount = updated.length;
+      console.log('[wishlist] Filter result:', { beforeCount, afterCount, removed: beforeCount > afterCount });
+      return updated;
+    });
+    
+    // Show confirmation
+    setWishlistActionMsg('Item removed from wishlist.');
+    setTimeout(() => setWishlistActionMsg(''), 3000);
+  };
+
+  const handleToggleWishlistExpanded = () => {
+    setWishlistExpanded((current) => !current);
+  };
+
+  const handleRemoveCartLine = (cartItemId: string) => {
+    setWishlistActionMsg('');
+    // Track this as optimistically deleted so it doesn't come back
+    setOptimisticallyDeletedBookIds((current) => new Set([...current, cartItemId]));
+    
+    // Remove item from UI state optimistically
+    setCartUiBooks((current) =>
+      current.filter((book) => book.cartItemId !== cartItemId && book.id !== cartItemId)
+    );
+    void (async () => {
+      try {
+        await removeCartItem(cartItemId);
+        
+        // Wait a moment then refetch to ensure UI stays in sync with backend
+        await new Promise(resolve => setTimeout(resolve, 200));
+        cartState.refetch();
+        
+        // Show success message
+        setWishlistActionMsg('Item removed from cart.');
+        // Auto-clear success message after 3 seconds
+        setTimeout(() => setWishlistActionMsg(''), 3000);
+      } catch (e) {
+        // On error, remove from optimistically deleted and refetch to restore the item
+        setOptimisticallyDeletedBookIds((current) => {
+          const updated = new Set(current);
+          updated.delete(cartItemId);
+          return updated;
+        });
+        cartState.refetch();
+        setWishlistActionMsg(e instanceof Error ? e.message : 'Unable to remove item.');
+      }
+    })();
+  };
+
+  const handleAddToCart = (book: Book) => {
+    setPublicActionMsg('');
+    void (async () => {
+      if (!user) {
+        setPublicActionMsg('Sign in to add books to cart.');
+        navigateToPage('login');
+        return;
+      }
+      const productId = book.productId || book.id;
+      if (!productId) return;
+      try {
+        // Check if item is already in cart before adding
+        const isAlreadyInCart = (cartState.data?.items || []).some(
+          (item) => item.productId === productId
+        );
+
+        await addCartItem(productId, 1);
+        // Remove from wishlist using consistent ID matching
+        setSavedForLater((current) => current.filter((item) => item.id !== book.id));
+        
+        // Wait before refetch to let state settle
+        await new Promise(resolve => setTimeout(resolve, 100));
+        cartState.refetch();
+        
+        // Show appropriate message based on whether it was already in cart
+        const msg = isAlreadyInCart ? 'Item already in cart.' : 'Item added to cart.';
+        setPublicActionMsg(msg);
+        // Auto-clear success message after 3 seconds
+        setTimeout(() => setPublicActionMsg(''), 3000);
+      } catch (e) {
+        setPublicActionMsg(e instanceof Error ? e.message : 'Unable to add to cart.');
+      }
+    })();
+  };
+
+  const handleSubscribePlan = (planId: string) => {
+    setSubscriptionActionError('');
+    void (async () => {
+      if (!user) {
+        setSubscriptionActionError('Sign in to subscribe.');
+        return;
+      }
+      try {
+        await postSubscribe(planId);
+        subStatusState.refetch();
+      } catch (e) {
+        try {
+          await activateUserSubscription(planId);
+          subStatusState.refetch();
+        } catch (e2) {
+          setSubscriptionActionError(
+            e2 instanceof Error ? e2.message : 'Subscription failed.'
+          );
+        }
+      }
+    })();
+  };
+
+  const handleFinalizeCheckout = async (payment: {
+    cardholderName: string;
+    cardNumber: string;
+    expiry: string;
+    cvv: string;
+  }) => {
+    setCheckoutErr('');
+    const numberDigits = payment.cardNumber.replace(/\D+/g, '');
+    if (!payment.cardholderName.trim() || numberDigits.length < 12 || !payment.expiry.trim() || payment.cvv.trim().length < 3) {
+      setCheckoutErr('Enter valid debit/credit card details to continue.');
+      return;
+    }
+
+    try {
+      const result = (await postCheckout({
+        gateway: 'demo',
+        paymentMethod: 'card',
+        currency: 'USD',
+      })) as {
+        order?: { orderId?: string; totalAmount?: number | string; items?: Array<{ totalPrice?: number | string }> };
+        payment?: { paymentId?: string; amount?: number | string };
+      };
+
+      const orderId = String(result?.order?.orderId ?? '').trim() || `ORD-${Date.now()}`;
+      const lineItems = Array.isArray(result?.order?.items) ? result.order.items : [];
+      const lineItemTotal = lineItems.reduce((sum, item) => sum + Number(item.totalPrice ?? 0), 0);
+      const backendTotalRaw = result?.order?.totalAmount ?? result?.payment?.amount;
+      const backendTotal = typeof backendTotalRaw === 'number' ? backendTotalRaw : Number(backendTotalRaw ?? 0);
+      const totalAmount = Number.isFinite(lineItemTotal) && lineItemTotal > 0 ? lineItemTotal : backendTotal;
+      const last4 = numberDigits.slice(-4);
+
+      setLatestInvoice({
+        invoiceNumber: `INV-${Date.now()}`,
+        orderId,
+        amountLabel: formatMoney(Number.isFinite(totalAmount) ? totalAmount : 0),
+        dateLabel: new Date().toLocaleString(),
+        paymentLabel: `Card ending ${last4 || 'XXXX'}`,
+      });
+
+      libState.refetch();
+      adminOrdersState.refetch();
+      window.dispatchEvent(new CustomEvent(ORDER_ACTIVITY_EVENT));
+      setLibraryActionMsg('Checkout successful. Purchased books are now in your private library.');
+      setPage('personal-library');
+      cartState.refetch();
+    } catch (e) {
+      setCheckoutErr(e instanceof Error ? e.message : 'Checkout failed.');
+    }
+  };
+
+  const handleDownloadInvoice = () => {
+    if (!latestInvoice) return;
+    const lines = [
+      'Masuki Books - Payment Invoice',
+      `Invoice No: ${latestInvoice.invoiceNumber}`,
+      `Order ID: ${latestInvoice.orderId}`,
+      `Date: ${latestInvoice.dateLabel}`,
+      `Amount: ${latestInvoice.amountLabel}`,
+      `Payment: ${latestInvoice.paymentLabel}`,
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = `${latestInvoice.invoiceNumber}.txt`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(href);
+  };
+
+  const handlePublicPurchaseRequired = (book: Book) => {
+    const title = book.title || 'This title';
+    setPublicActionMsg(`${title} requires purchase before viewing. Add it to cart and complete checkout.`);
+  };
+
+  const handleAdminCreateBook = () => {
+    setAdminActionError('');
+    setPage('admin-add-book');
+  };
+
+  const handleAdminSubmitBookForm = async (payload: {
+    categoryId: string;
+    title: string;
+    author: string;
+    sku: string;
+    format: string;
+    price: number;
+    contentType?: string;
+    status?: string;
+    description?: string;
+    file?: File;
+    fileUrl?: string;
+  }) => {
+    setAdminActionError('');
+    setAdminBookSaving(true);
+    try {
+      const { file, fileUrl, ...bookBody } = payload;
+      let usedRetrySku = false;
+      let created;
+      try {
+        created = await createAdminBook({ ...bookBody, fileUrl });
+      } catch (createError) {
+        if (!isDuplicateSkuError(createError)) {
+          throw createError;
+        }
+        usedRetrySku = true;
+        created = await createAdminBook({
+          ...bookBody,
+          sku: generateDraftSku(),
+          fileUrl,
+        });
+      }
+      const hasUrl = Boolean(fileUrl?.trim());
+      const hasFile = Boolean(file);
+
+      if (hasFile && hasUrl && file) {
+        // Preserve URL-based reader behavior and save selected file locally.
+        triggerLocalFileDownload(file);
+      } else if (file) {
+        await uploadAdminBookFile(created.productId, file);
+      }
+      adminFetch.refetch();
+      catalogState.refetch();
+      if (hasFile && hasUrl) {
+        setAdminActionError(
+          usedRetrySku
+            ? 'Book created with a regenerated SKU and URL. Selected file downloaded locally.'
+            : 'Book created with URL. Selected file downloaded locally.'
+        );
+      } else {
+        setAdminActionError(
+          usedRetrySku
+            ? 'Book created successfully with a regenerated SKU.'
+            : 'Book created successfully.'
+        );
+      }
+      setPage('admin');
+    } catch (e) {
+      setAdminActionError(e instanceof Error ? e.message : 'Failed to create book.');
+      throw e;
+    } finally {
+      setAdminBookSaving(false);
+    }
+  };
+
+  const handleAdminCreateCategory = () => {
+    setAdminActionError('');
+    void (async () => {
+      try {
+        const name = window.prompt('Category name');
+        if (!name) return;
+        const suggestedSlug = name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
+        const slug = (window.prompt('Category slug', suggestedSlug) ?? '').trim();
+        if (!slug) {
+          setAdminActionError('Slug is required.');
+          return;
+        }
+        await createAdminCategory({ name, slug });
+        categoriesState.refetch();
+        setAdminActionError('Category created successfully.');
+      } catch (e) {
+        setAdminActionError(e instanceof Error ? e.message : 'Failed to create category.');
+      }
+    })();
+  };
+
+  const handleCreateDefaultCategory = async () => {
+    setAdminActionError('');
+    try {
+      await createAdminCategory({
+        name: 'General',
+        slug: `general-${Date.now()}`,
+      });
+      await categoriesState.refetch();
+      setAdminActionError('Default category created. You can now select it in the form.');
+    } catch (e) {
+      setAdminActionError(e instanceof Error ? e.message : 'Failed to create default category.');
+    }
+  };
+
+  const handleAdminCreatePlan = () => {
+    setAdminActionError('');
+    void (async () => {
+      try {
+        const planName = window.prompt('Plan name');
+        if (!planName) return;
+        const priceRaw = window.prompt('Plan price', '9.99') ?? '9.99';
+        const durationRaw = window.prompt('Duration (days)', '30') ?? '30';
+        const price = Number(priceRaw);
+        const durationDays = Number(durationRaw);
+        if (Number.isNaN(price) || Number.isNaN(durationDays) || durationDays < 1) {
+          setAdminActionError('Provide valid price and duration days.');
+          return;
+        }
+        await createAdminSubscriptionPlan({ planName, price, durationDays });
+        plansState.refetch();
+        setAdminActionError('Subscription plan created.');
+      } catch (e) {
+        setAdminActionError(e instanceof Error ? e.message : 'Failed to create subscription plan.');
+      }
+    })();
+  };
+
+  const handleAdminUpsertPublicLibrary = () => {
+    setAdminActionError('');
+    void (async () => {
+      try {
+        const productId = window.prompt('Product ID to publish in public library');
+        if (!productId) return;
+        await upsertAdminPublicLibrary({
+          productId,
+          visibility: 'PUBLIC',
+          editable: true,
+        });
+        adminPublicLibraryState.refetch();
+        catalogState.refetch();
+        setAdminActionError('Public library entry upserted.');
+      } catch (e) {
+        setAdminActionError(e instanceof Error ? e.message : 'Failed to upsert public library entry.');
+      }
+    })();
+  };
+
+  const handleAdminUpdateOrderStatus = () => {
+    setAdminActionError('');
+    void (async () => {
+      try {
+        const orderId = window.prompt('Order ID');
+        if (!orderId) return;
+        const status = window.prompt('New status', 'CONFIRMED') ?? 'CONFIRMED';
+        await updateAdminOrderStatus(orderId, status);
+        adminOrdersState.refetch();
+        setAdminActionError('Order status updated.');
+      } catch (e) {
+        setAdminActionError(e instanceof Error ? e.message : 'Failed to update order status.');
+      }
+    })();
+  };
+
+  const handleAdminUploadBookFile = (bookId: string) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.epub,application/pdf,application/epub+zip';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      void (async () => {
+        try {
+          await uploadAdminBookFile(bookId, file);
+          adminFetch.refetch();
+          catalogState.refetch();
+          setAdminActionError('Book file uploaded.');
+        } catch (e) {
+          setAdminActionError(e instanceof Error ? e.message : 'Failed to upload book file.');
+        }
+      })();
+    };
+    input.click();
+  };
+
+  const handleAdminEditBook = (bookId: string) => {
+    setAdminActionError('');
+    setAdminEditingBookId(bookId);
+    setPage('admin-edit-book');
+  };
+
+  const handleAdminSubmitEditBookForm = async (payload: {
+    categoryId: string;
+    title: string;
+    author: string;
+    sku: string;
+    format: string;
+    price: number;
+    contentType?: string;
+    status?: string;
+    description?: string;
+  }) => {
+    if (!adminEditingBookId) return;
+    setAdminActionError('');
+    setAdminBookEditSaving(true);
+    try {
+      await updateAdminBook(adminEditingBookId, payload);
+      adminFetch.refetch();
+      catalogState.refetch();
+      setAdminActionError('Book updated successfully.');
+      setPage('admin');
+      setAdminEditingBookId(null);
+    } catch (e) {
+      setAdminActionError(e instanceof Error ? e.message : 'Failed to update book.');
+      throw e;
+    } finally {
+      setAdminBookEditSaving(false);
+    }
+  };
+
+  const handleAdminDeleteFirstPublicLibraryRecord = () => {
+    setAdminActionError('');
+    void (async () => {
+      try {
+        const firstId = adminPublicLibraryState.data?.[0]?.publicLibraryId;
+        if (!firstId) {
+          setAdminActionError('No public library records to delete.');
+          return;
+        }
+        await deleteAdminPublicLibrary(firstId);
+        adminPublicLibraryState.refetch();
+        catalogState.refetch();
+        setAdminActionError('Deleted one public library record.');
+      } catch (e) {
+        setAdminActionError(e instanceof Error ? e.message : 'Failed to delete public library record.');
+      }
+    })();
+  };
+
+  const handleAdminDeleteBooks = (bookIds: string[]) => {
+    const ids = bookIds.map((id) => String(id).trim()).filter(Boolean);
+    if (ids.length === 0) return;
+
+    setAdminActionError('');
+    setOptimisticallyDeletedBookIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.add(id);
+      return next;
+    });
+
+    void (async () => {
+      try {
+        for (const bookId of ids) {
+          await deleteAdminBook(bookId);
+        }
+        adminFetch.refetch();
+        catalogState.refetch();
+        setAdminActionError(`Deleted ${ids.length} book(s).`);
+      } catch (e) {
+        // Roll back optimistic removal on error and resync with server state.
+        setOptimisticallyDeletedBookIds((prev) => {
+          const next = new Set(prev);
+          for (const id of ids) next.delete(id);
+          return next;
+        });
+        adminFetch.refetch();
+        setAdminActionError(e instanceof Error ? e.message : `Failed to delete ${ids.length} book(s).`);
+      }
+    })();
+  };
+
+  // Scroll to top on page change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [page]);
+
+  useEffect(() => {
+    if (initializing || isAuthenticated) return;
+    if (protectedPages.includes(page)) {
+      setPage('login');
+    }
+  }, [initializing, isAuthenticated, page, protectedPages]);
+
+  const showNavbar = !['login', 'reader'].includes(page);
+  const showFooter = !['login', 'reader'].includes(page);
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {showNavbar && <Navbar currentPage={page} setPage={navigateToPage} isAuthenticated={isAuthenticated} isAdmin={isAdminUser} onLogout={signOut} />}
+      
+      <main className="flex-grow pb-[5.75rem] md:pb-0">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={page}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            {page === 'landing' && (
+              <LandingPage
+                setPage={navigateToPage}
+                onBeginReading={handleBeginReading}
+                onViewDetails={handleViewLandingDetails}
+                isAuthenticated={isAuthenticated}
+                newReleases={newReleases}
+                catalogTotal={catalogRows.length}
+              />
+            )}
+            {page === 'personal-library' && (
+              isAdminUser ? (
+                <AdminUserStats orders={adminOrderRows} />
+              ) : (
+                <PersonalLibrary
+                  books={purchasedPersonalBooks}
+                  readingBook={readingBook}
+                  actionMessage={libraryActionMsg}
+                  activeTab={landingLibraryTab}
+                  onTabChange={setLandingLibraryTab}
+                  onOpenReader={handleOpenReader}
+                  onOpenCatalog={handleOpenCatalog}
+                  onSortChange={() => setLandingLibrarySort((current) => (current === 'Recent Activity' ? 'Progress' : 'Recent Activity'))}
+                  sortLabel={landingLibrarySort}
+                />
+              )
+            )}
+            {page === 'profile' && !isAdminUser && (
+              <UserProfilePage user={user} />
+            )}
+            {page === 'public-library' && (
+              <PublicLibrary
+                books={publicBooks}
+                totalCount={catalogRows.length}
+                onAddToCart={handleAddToCart}
+                onRequestPurchaseAccess={handlePublicPurchaseRequired}
+                actionMessage={publicActionMsg}
+                pagination={{
+                  onPrev: publicPag.goPrev,
+                  onNext: publicPag.goNext,
+                  onSelectPage: (n) => publicPag.setPage(n - 1),
+                  currentPage1Based: publicPag.page + 1,
+                  totalPages: Math.max(1, publicPag.totalPages),
+                }}
+                viewMode={publicViewMode}
+                onToggleViewMode={handlePublicViewMode}
+                sortMode={publicSortMode}
+                onToggleSortMode={handlePublicSortToggle}
+              />
+            )}
+            {page === 'wishlist' && (
+              <WishlistPage
+                cart={cart}
+                cartBooks={activeCartBooks}
+                onRemoveLine={handleRemoveCartLine}
+                onProceedCheckout={() => navigateToPage('checkout')}
+                savedBooks={savedForLater}
+                onMoveToWishlist={handleWishlistMoveToWishlist}
+                onSaveForLater={handleWishlistSaveForLater}
+                onMoveSavedToCart={handleMoveSavedToCart}
+                onRemoveFromWishlist={handleRemoveFromWishlist}
+                onToggleExpanded={handleToggleWishlistExpanded}
+                showAll={wishlistExpanded}
+                onBrowseCatalog={handleOpenCatalog}
+                actionMessage={wishlistActionMsg}
+              />
+            )}
+            {page === 'subscription' && (
+              <SubscriptionPage
+                plans={uiPlans}
+                status={subStatusState.data ?? null}
+                onSubscribe={handleSubscribePlan}
+                actionError={subscriptionActionError}
+                catalogTotal={catalogRows.length}
+                billingCycle={billingCycle}
+                onToggleBillingCycle={handleToggleBillingCycle}
+              />
+            )}
+            {page === 'checkout' && (
+              <CheckoutPage
+                setPage={setPage}
+                cartBooks={cartBooks}
+                subtotalLabel={formatMoney(Number(cart?.subtotal ?? 0))}
+                onFinalize={handleFinalizeCheckout}
+                onDownloadInvoice={handleDownloadInvoice}
+                invoice={latestInvoice}
+                checkoutError={checkoutErr}
+              />
+            )}
+            {page === 'login' && (
+              <LoginPage
+                setPage={setPage}
+                onSignIn={signIn}
+                onSignInAdmin={signInAdmin}
+                onSignUp={signUp}
+              />
+            )}
+            {page === 'admin' && (
+              <AdminVaultPage
+                books={adminBooks}
+                onEditBook={handleAdminEditBook}
+                onUploadBookFile={handleAdminUploadBookFile}
+                  onDeleteBooks={handleAdminDeleteBooks}
+                adminActionError={adminActionError}
+                pagination={{
+                  onPrev: adminPag.goPrev,
+                  onNext: adminPag.goNext,
+                  onSelectPage: (n) => adminPag.setPage(n - 1),
+                  currentPage1Based: adminPag.page + 1,
+                  totalPages: Math.max(1, adminPag.totalPages),
+                  totalElements: adminPag.totalElements,
+                }}
+              />
+            )}
+            {page === 'admin-add-book' && (
+              <AdminAddBookPage
+                categories={categoriesState.data ?? []}
+                busy={adminBookSaving}
+                error={adminActionError}
+                onCancel={() => navigateToPage('admin')}
+                onCreateDefaultCategory={handleCreateDefaultCategory}
+                onSubmit={handleAdminSubmitBookForm}
+              />
+            )}
+            {page === 'admin-edit-book' && adminEditingBookId && adminFetch.data?.content?.find(b => b.productId === adminEditingBookId) && (
+              <AdminEditBookPage
+                book={adminFetch.data.content.find(b => b.productId === adminEditingBookId)!}
+                categories={categoriesState.data ?? []}
+                busy={adminBookEditSaving}
+                error={adminActionError}
+                onCancel={() => navigateToPage('admin')}
+                onSubmit={handleAdminSubmitEditBookForm}
+              />
+            )}
+            {page === 'reader' && (
+              <>
+                {purchasedPersonalBooks.length > 0 ? (
+                  <Suspense fallback={null}>
+                    <ReaderPageLazy setPage={setPage} readerTitle={readerTitle} readerBookId={readingBook?.id ?? purchasedPersonalBooks[0]?.id ?? ''} readerFormat={readerFormat} readerUrl={readerUrl} />
+                  </Suspense>
+                ) : (
+                  <div className="max-w-screen-md mx-auto px-8 py-24 space-y-6 text-center">
+                    <h1 className="font-headline text-5xl text-primary italic">Purchase required</h1>
+                    <p className="text-lg text-on-surface-variant">You need to buy a book before the reader can open.</p>
+                    <button
+                      type="button"
+                      className="primary-gradient text-on-primary px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs"
+                      onClick={() => setPage('public-library')}
+                    >
+                      Browse Public Library
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {page === 'terms-of-service' && <TermsOfServicePage setPage={navigateToPage} />}
+            {page === 'privacy-policy' && <PrivacyPolicyPage setPage={navigateToPage} />}
+            {page === 'archive-ethics' && <ArchiveEthicsPage setPage={navigateToPage} />}
+            {page === 'contact-support' && <ContactSupportPage setPage={navigateToPage} />}
+            {page === 'help-center' && <HelpCenterPage setPage={navigateToPage} />}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      {showFooter && <Footer onNavigate={navigateToPage} isAuthenticated={isAuthenticated} />}
+
+      <FloatingMenu currentPage={page} onNavigate={navigateToPage} isAuthenticated={isAuthenticated} isAdmin={isAdminUser} />
+    </div>
+  );
+}

@@ -1,0 +1,18 @@
+export type AppPage =
+  | "landing"
+  | "public-library"
+  | "profile"
+  | "personal-library"
+  | "wishlist"
+  | "subscription"
+  | "checkout"
+  | "login"
+  | "admin"
+  | "admin-add-book"
+  | "admin-edit-book"
+  | "reader"
+  | "terms-of-service"
+  | "privacy-policy"
+  | "archive-ethics"
+  | "contact-support"
+  | "help-center";
