@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { 
   Search, 
   ShoppingCart, 
@@ -436,11 +436,11 @@ const Footer = ({
       <div className="space-y-6">
         <h5 className="text-xs font-bold uppercase tracking-widest text-primary">Resources</h5>
         <ul className="space-y-4">
-          {[
-            ['Terms of Service', 'terms-of-service' as const],
-            ['Privacy Policy', 'privacy-policy' as const],
-            ['Archive Ethics', 'archive-ethics' as const],
-          ].map(([label, page]) => (
+          {([] as [string, import('./types/navigation').AppPage][]).concat([
+            ['Terms of Service', 'terms-of-service'],
+            ['Privacy Policy', 'privacy-policy'],
+            ['Archive Ethics', 'archive-ethics'],
+          ]).map(([label, page]) => (
             <li key={label}>
               <button
                 onClick={() => onNavigate(page)}
@@ -455,10 +455,10 @@ const Footer = ({
       <div className="space-y-6">
         <h5 className="text-xs font-bold uppercase tracking-widest text-primary">Support</h5>
         <ul className="space-y-4">
-          {[
-            ['Contact Support', 'contact-support' as const],
-            ['Help Center', 'help-center' as const],
-          ].map(([label, page]) => (
+          {([] as [string, import('./types/navigation').AppPage][]).concat([
+            ['Contact Support', 'contact-support'],
+            ['Help Center', 'help-center'],
+          ]).map(([label, page]) => (
             <li key={label}>
               <button
                 onClick={() => onNavigate(page)}
@@ -1022,12 +1022,12 @@ const LandingPage = ({
       <div className="relative z-20 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <div className="space-y-8">
           <div className="space-y-4">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">Featured Archive Edition</span>
-            <h1 className="font-headline text-6xl lg:text-8xl text-primary leading-[1.1]">
-            The art of  <br/><i className="font-serif">Masuki books</i>
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">The Harvard Alumni Behavioral Books</span>
+            <h1 className="font-headline text-4xl lg:text-6xl text-primary leading-[1.1]">
+            The Definitive Framework for Corporate Excellence at Every Level.
             </h1>
             <p className="text-lg text-on-surface-variant max-w-[50ch] leading-relaxed">
-              A curated exploration into the philosophy of deep reading in a digital age. Discover why the most profound ideas require the most patience.
+              Success in a complex organization isn't just about what you know—it's about how you behave. Developed by a collective of Harvard University Alumni, this series translates elite behavioral science into a practical, tiered roadmap for the modern workforce.
             </p>
           </div>
           <div className="flex flex-wrap gap-4">
@@ -1129,9 +1129,12 @@ const LandingPage = ({
     <section className="py-24 bg-surface">
       <div className="max-w-screen-2xl mx-auto px-8">
         <div className="text-center mb-16 space-y-4">
-          <h2 className="font-headline text-5xl text-primary italic">Curated Shelves</h2>
-          <p className="text-on-surface-variant max-w-[60ch] mx-auto">
-            Explore our collection by theme. Each category is hand-curated by our resident archivists to ensure a cohesive intellectual journey.
+          <h2 className="font-headline text-5xl text-primary italic">Unlock the DNA of Excellence: Lead at Every Level</h2>
+          <p className="text-on-surface-variant max-w-[80ch] mx-auto text-lg leading-relaxed text-left">
+            <span className="font-bold">Success isn't an accident. It's a framework.</span><br/><br/>
+            In the modern corporate landscape, talent is common, but behavioral mastery is rare. Most professionals spend their careers guessing at the "unspoken rules" of the boardroom, while organizations struggle to bridge the gap between potential and performance.<br/><br/>
+            <span className="font-bold text-primary text-center block">It's time to stop guessing.</span><br/>
+            Forged by a collective of Harvard University Alumni, this library has more than a collection of books—it is a masterclass in professional evolution. We have distilled decades of Ivy League research and real-world executive experience into a definitive behavioral roadmap designed to turn every contributor into a powerhouse and every manager into a visionary.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[800px] md:h-[600px]">
@@ -1193,21 +1196,62 @@ const LandingPage = ({
 
     {/* Features */}
     <section className="py-24 bg-surface-container border-y border-outline-variant/15">
-      <div className="max-w-screen-2xl mx-auto px-8 grid grid-cols-1 md:grid-cols-3 gap-16">
-        <div className="space-y-6">
-          <BookOpen className="w-10 h-10 text-primary" />
-          <h4 className="font-headline text-2xl text-primary">Distraction-Free</h4>
-          <p className="text-on-surface-variant leading-relaxed">Our interface is designed to disappear. No popups, no tracking, just the ink and your imagination.</p>
+      <div className="max-w-screen-2xl mx-auto px-8">
+        <div className="text-center mb-16 space-y-4">
+          <h2 className="font-headline text-5xl text-primary italic">Transform Your Career. Revolutionize Your Culture.</h2>
+          <p className="text-on-surface-variant max-w-[80ch] mx-auto text-lg leading-relaxed">
+            Whether you are looking to accelerate your own trajectory or build a world-class workforce, the Harvard Alumni Framework Series provides the exact psychological and tactical blueprints required for the five critical stages of corporate life:
+          </p>
         </div>
-        <div className="space-y-6">
-          <History className="w-10 h-10 text-primary" />
-          <h4 className="font-headline text-2xl text-primary">True Ownership</h4>
-          <p className="text-on-surface-variant leading-relaxed">Every purchase includes a permanent archival copy. Your library is yours, regardless of the platform's future.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 max-w-6xl mx-auto">
+          <div className="space-y-6">
+            <User className="w-10 h-10 text-primary" />
+            <h4 className="font-headline text-2xl text-primary">For the Rising Star<br/><span className="text-lg opacity-80">(Entry-Level IC)</span></h4>
+            <p className="text-on-surface-variant leading-relaxed">Stop being a "new hire" and start being indispensable. Learn the high-output behaviors that catch the eyes of executives within your first 90 days.</p>
+          </div>
+          <div className="space-y-6">
+            <Globe className="w-10 h-10 text-primary" />
+            <h4 className="font-headline text-2xl text-primary">For the Power Player<br/><span className="text-lg opacity-80">(Mid-Level IC)</span></h4>
+            <p className="text-on-surface-variant leading-relaxed">Master the art of influence. Learn how to lead projects and people even when you don't have the title, becoming the "glue" that holds high-stakes initiatives together.</p>
+          </div>
+          <div className="space-y-6">
+            <History className="w-10 h-10 text-primary" />
+            <h4 className="font-headline text-2xl text-primary">For the New Captain<br/><span className="text-lg opacity-80">(Entry-Level Manager)</span></h4>
+            <p className="text-on-surface-variant leading-relaxed">Navigate the hardest transition of your life with confidence. Turn your former peers into a high-performing team without losing your soul or your sanity.</p>
+          </div>
+          <div className="space-y-6 lg:ml-auto max-w-sm">
+            <BookOpen className="w-10 h-10 text-primary" />
+            <h4 className="font-headline text-2xl text-primary">For the Growth Architect<br/><span className="text-lg opacity-80">(Senior Manager)</span></h4>
+            <p className="text-on-surface-variant leading-relaxed">Move from managing tasks to building systems. Learn to develop a talent pipeline that makes your department the envy of the entire organization.</p>
+          </div>
+          <div className="space-y-6 lg:mr-auto max-w-sm">
+            <Highlighter className="w-10 h-10 text-primary" />
+            <h4 className="font-headline text-2xl text-primary">For the Cultural Steward<br/><span className="text-lg opacity-80">(Leadership)</span></h4>
+            <p className="text-on-surface-variant leading-relaxed">Don't just run a company—define an era. Master the high-level EQ and strategic vision required to inspire thousands and leave a lasting legacy.</p>
+          </div>
         </div>
-        <div className="space-y-6">
-          <Highlighter className="w-10 h-10 text-primary" />
-          <h4 className="font-headline text-2xl text-primary">Scholarly Tools</h4>
-          <p className="text-on-surface-variant leading-relaxed">Export your highlights to any research tool. We support Markdown, Obsidian, and Zotero natively.</p>
+      </div>
+    </section>
+
+    {/* The Edge */}
+    <section className="py-24 bg-surface px-8 text-center border-b border-outline-variant/15">
+      <div className="max-w-[800px] mx-auto space-y-8">
+        <h2 className="font-headline text-5xl text-primary">The Edge You’ve Been Searching For</h2>
+        <p className="text-lg text-on-surface-variant leading-relaxed">
+          Why settle for generic "leadership advice" when you can implement a validated framework used by the world’s most elite organizations? This is the difference between working hard and working right.
+        </p>
+        <blockquote className="font-serif text-2xl text-primary italic border-l-4 border-primary pl-6 py-2 text-left my-10 max-w-[600px] mx-auto bg-surface-container-low p-6 rounded-r-xl">
+          "This series doesn't just teach you how to work; it teaches you how to win. It is the definitive guide for anyone who refuses to settle for mediocrity."
+        </blockquote>
+        
+        <div className="pt-16 pb-8">
+          <h3 className="font-headline text-4xl text-primary mb-6">Your Path to the Top Starts Here.</h3>
+          <p className="text-lg text-on-surface-variant leading-relaxed max-w-[60ch] mx-auto mb-8 text-left">
+            Your future self is waiting for you to make this move. Empower your team, elevate your career, and master the behaviors that define the top 1%.
+          </p>
+          <div className="inline-block px-12 py-6 bg-primary text-on-primary rounded-2xl font-bold tracking-wider text-xl shadow-lg border-2 border-primary/20">
+            Invest in the Framework. Own the Results.
+          </div>
         </div>
       </div>
     </section>
@@ -1231,7 +1275,7 @@ const PersonalLibrary = ({
   actionMessage?: string;
   activeTab: 'reading' | 'collections';
   onTabChange: (tab: 'reading' | 'collections') => void;
-  onOpenReader: () => void;
+  onOpenReader: (book?: Book) => void;
   onOpenCatalog: () => void;
   onSortChange: () => void;
   sortLabel: string;
@@ -1293,7 +1337,7 @@ const PersonalLibrary = ({
             <div className="h-full bg-primary" style={{ width: `${readingBook?.progress ?? 0}%` }} />
           </div>
           <div className="flex gap-4">
-            <button type="button" onClick={onOpenReader} className="primary-gradient text-on-primary px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex items-center gap-2">
+            <button type="button" onClick={() => onOpenReader(readingBook)} className="primary-gradient text-on-primary px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex items-center gap-2">
               <BookOpen className="w-4 h-4" /> Read Now
             </button>
             <button type="button" onClick={onOpenCatalog} className="px-8 py-3 border border-outline-variant/30 rounded-lg font-bold uppercase tracking-widest text-xs text-primary hover:bg-surface-container-high transition-colors">
@@ -2938,6 +2982,7 @@ const AdminEditBookPage = ({
 
 export default function App() {
   const [page, setPage] = useState<Page>(getInitialPage);
+  const [activeReadingBookId, setActiveReadingBookId] = useState<string | null>(null);
   const [subscriptionActionError, setSubscriptionActionError] = useState('');
   const [publicActionMsg, setPublicActionMsg] = useState('');
   const [libraryActionMsg, setLibraryActionMsg] = useState('');
@@ -3248,16 +3293,18 @@ export default function App() {
     navigateToPage('public-library');
   };
 
-  const handleOpenReader = () => {
-    if (readingBook?.isFlipbook && readingBook.fileUrl) {
-      window.open(readingBook.fileUrl, '_blank', 'noopener,noreferrer');
+  const handleOpenReader = (book?: Book) => {
+    const targetBook = book?.id ? book : readingBook;
+    if (targetBook?.isFlipbook && targetBook?.fileUrl) {
+      window.open(targetBook.fileUrl, '_blank', 'noopener,noreferrer');
       return;
     }
-    if (!readingBook) {
+    if (!targetBook) {
       setLibraryActionMsg('Purchase a book to read it in your private library.');
       return;
     }
     setLibraryActionMsg('');
+    setActiveReadingBookId(targetBook.id);
     navigateToPage('reader');
   };
 
@@ -3968,3 +4015,4 @@ export default function App() {
     </div>
   );
 }
+
