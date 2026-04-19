@@ -12,7 +12,7 @@ const isLocalHost =
   resolvedHost === "localhost" || resolvedHost === "127.0.0.1";
 
 const DEFAULT_API_URL = isLocalHost
-  ? "http://localhost:8081"
+  ? "http://localhost:8001"
   : "https://masuki-books-backend.onrender.com";
 
 const envApiUrl = import.meta.env.VITE_API_URL?.trim();
@@ -701,19 +701,6 @@ export async function fetchMergedPublicCatalog(opts?: {
       const backendRows = await getPublicLibrary().catch(
         () => [] as PublicLibraryRow[]
       );
-
-      // Prefer backend as source of truth; only query Supabase when backend has no rows.
-      if (backendRows.length > 0) {
-        const normalized = backendRows
-          .map((b) => {
-            const id = stableProductId(b);
-            return id ? { ...b, productId: id } : null;
-          })
-          .filter((v): v is PublicLibraryRow => v !== null);
-        ttlSet(cacheKey, normalized, READ_CACHE_TTL_MS);
-        return normalized;
-      }
-
       const supabaseRows = await fetchSupabaseBooks();
 
       const fromSupabase: PublicLibraryRow[] = supabaseRows.map((row) => ({
@@ -734,7 +721,22 @@ export async function fetchMergedPublicCatalog(opts?: {
       for (const s of fromSupabase) {
         const id = stableProductId(s);
         if (!id) continue;
-        if (!merged.has(id)) merged.set(id, { ...s, productId: id });
+        const existing = merged.get(id);
+        if (!existing) {
+          merged.set(id, { ...s, productId: id });
+          continue;
+        }
+
+        const existingFileUrl = String(existing.fileUrl ?? "").trim();
+        const supabaseFileUrl = String(s.fileUrl ?? "").trim();
+
+        merged.set(id, {
+          ...existing,
+          // Preserve backend fields, but fill gaps with Supabase catalog values.
+          title: existing.title || s.title,
+          author: existing.author || s.author,
+          fileUrl: existingFileUrl || supabaseFileUrl || existing.fileUrl,
+        });
       }
 
       const out = Array.from(merged.values());

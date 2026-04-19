@@ -52,16 +52,8 @@ function hashSeed(value: string): number {
   return Math.abs(hash);
 }
 
-function pickCoverPalette(seed: number): { top: string; bottom: string; accent: string } {
-  const palettes = [
-    { top: "#0F172A", bottom: "#1D4ED8", accent: "#93C5FD" },
-    { top: "#1F2937", bottom: "#7C3AED", accent: "#DDD6FE" },
-    { top: "#111827", bottom: "#DC2626", accent: "#FCA5A5" },
-    { top: "#052E16", bottom: "#15803D", accent: "#86EFAC" },
-    { top: "#172554", bottom: "#0891B2", accent: "#67E8F9" },
-    { top: "#3F1D2E", bottom: "#BE123C", accent: "#FDA4AF" },
-  ];
-  return palettes[seed % palettes.length];
+function pickCoverPalette(_seed: number): { top: string; bottom: string; accent: string } {
+  return { top: "#0B1F66", bottom: "#2563EB", accent: "#93C5FD" };
 }
 
 function escapeXml(value: string): string {
@@ -172,7 +164,11 @@ export function publicRowToUiBook(p: PublicLibraryRow): UiBook {
   const author = p.author?.trim() || "Unknown";
   const rawUrl = normalizeDownloadUrl(p.fileUrl);
   const lowerUrl = rawUrl.toLowerCase();
-  const isFlipbook = lowerUrl.includes("designrr.page") || lowerUrl.includes("type=fp") || lowerUrl.includes("flipbook");
+  const isFlipbook =
+    lowerUrl.includes("designrr.page") ||
+    lowerUrl.includes("designrr.s3.amazonaws.com") ||
+    lowerUrl.includes("type=fp") ||
+    lowerUrl.includes("flipbook");
 
   return {
     id: p.productId,
@@ -217,7 +213,14 @@ export function libraryRowToUiBook(p: LibraryRow): UiBook {
       ? Math.round(Number(p.readingPercentage))
       : undefined;
   const fileFormat = (p.fileFormat ?? '').trim();
-  const isFlipbook = fileFormat.toLowerCase() === 'flipbook';
+  const normalizedFileUrl = normalizeDownloadUrl(p.fileUrl);
+  const lowerUrl = normalizedFileUrl.toLowerCase();
+  const isFlipbook =
+    fileFormat.toLowerCase() === 'flipbook' ||
+    lowerUrl.includes("designrr.page") ||
+    lowerUrl.includes("designrr.s3.amazonaws.com") ||
+    lowerUrl.includes("type=fp") ||
+    lowerUrl.includes("flipbook");
   return {
     id: p.productId,
     title,
@@ -228,7 +231,7 @@ export function libraryRowToUiBook(p: LibraryRow): UiBook {
     accessType: p.accessType,
     fileFormat,
     isFlipbook,
-    fileUrl: (p.fileUrl ?? '').trim() || undefined,
+    fileUrl: normalizedFileUrl || undefined,
   };
 }
 

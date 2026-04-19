@@ -1,6 +1,0 @@
-{
-  "discountCode": null,
-  "currency": "INR",
-  "gateway": "razorpay",
-  "paymentMethod": "card"
-}

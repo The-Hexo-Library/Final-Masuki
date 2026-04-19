@@ -35,9 +35,38 @@ export default function ReaderPage({
   const chapterLabel = activeChapter;
   const isFlipbook = (readerFormat ?? '').toLowerCase() === 'flipbook';
 
+  const getBlockedFlipbookReason = (url: string | undefined): string | null => {
+    if (!url) {
+      return 'Flipbook link is missing. Please ask the admin to attach a public reader URL.';
+    }
+
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.toLowerCase();
+      const isPdf = parsed.pathname.toLowerCase().endsWith('.pdf');
+      const hasSignedQuery =
+        parsed.searchParams.has('X-Amz-Signature') ||
+        parsed.searchParams.has('x-amz-signature');
+
+      if (host === 'designrr.s3.amazonaws.com' && isPdf && !hasSignedQuery) {
+        return 'This Designrr S3 PDF is private (403). Ask admin to provide a public Designrr share URL.';
+      }
+    } catch {
+      return 'Flipbook URL is invalid. Please provide a full public URL.';
+    }
+
+    return null;
+  };
+
   const handleOpenFlipbook = () => {
+    const blockedReason = getBlockedFlipbookReason(readerUrl);
+    if (blockedReason) {
+      setShareMessage(blockedReason);
+      return;
+    }
     if (!readerUrl) return;
     window.open(readerUrl, '_blank', 'noopener,noreferrer');
+    setShareMessage('');
   };
 
   const handleShare = async () => {
