@@ -411,6 +411,8 @@ export interface PublicLibraryRow {
   isFeatured?: boolean;
   notes?: string;
   editable?: boolean;
+  categoryName?: string;
+  price?: number;
 }
 
 export interface LibraryRow {
@@ -457,6 +459,7 @@ export interface CategoryRow {
   imageUrl?: string;
   displayOrder?: number;
   isActive?: boolean;
+  bookCount?: number;
 }
 
 /**
@@ -1194,6 +1197,26 @@ export async function getAdminBooksPage(
 ): Promise<ProductRow[]> {
   const p = await getAdminBooksPaged(page, size, status);
   return p.content;
+}
+
+export async function getPublicCategories(): Promise<CategoryRow[]> {
+  const cacheKey = "publicCategories";
+  const cached = ttlGet<CategoryRow[]>(cacheKey);
+  if (cached) return cached;
+
+  const { data } = await api.get("/api/categories");
+  const body = data as ApiResponse<CategoryRow[]>;
+  const result = body?.data ?? [];
+  ttlSet(cacheKey, result, READ_CACHE_TTL_MS);
+  return result;
+}
+
+export async function searchPublicLibrary(query: string): Promise<PublicLibraryRow[]> {
+  const { data } = await api.get("/api/library/public/search", {
+    params: { q: query },
+  });
+  const body = data as ApiResponse<PublicLibraryRow[]>;
+  return body?.data ?? [];
 }
 
 export { API_URL };

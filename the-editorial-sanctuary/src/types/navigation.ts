@@ -3,6 +3,7 @@ export type AppPage =
   | "public-library"
   | "profile"
   | "personal-library"
+  | "cart"
   | "wishlist"
   | "subscription"
   | "checkout"

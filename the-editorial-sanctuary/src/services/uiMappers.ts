@@ -54,12 +54,12 @@ function hashSeed(value: string): number {
 
 function pickCoverPalette(seed: number): { top: string; bottom: string; accent: string } {
   const palettes = [
-    { top: "#0F172A", bottom: "#1D4ED8", accent: "#93C5FD" },
-    { top: "#1F2937", bottom: "#7C3AED", accent: "#DDD6FE" },
-    { top: "#111827", bottom: "#DC2626", accent: "#FCA5A5" },
-    { top: "#052E16", bottom: "#15803D", accent: "#86EFAC" },
-    { top: "#172554", bottom: "#0891B2", accent: "#67E8F9" },
-    { top: "#3F1D2E", bottom: "#BE123C", accent: "#FDA4AF" },
+    { top: "#0a2e3d", bottom: "#14697a", accent: "#67c7d4" },
+    { top: "#0c3547", bottom: "#1a7d8a", accent: "#7fd4de" },
+    { top: "#0b2f40", bottom: "#127a6e", accent: "#5ec4b6" },
+    { top: "#0d3b4f", bottom: "#168e9c", accent: "#8ae0eb" },
+    { top: "#0a2a38", bottom: "#0f6b7a", accent: "#60bfcc" },
+    { top: "#0e3848", bottom: "#198590", accent: "#72d1db" },
   ];
   return palettes[seed % palettes.length];
 }
@@ -173,15 +173,18 @@ export function publicRowToUiBook(p: PublicLibraryRow): UiBook {
   const rawUrl = normalizeDownloadUrl(p.fileUrl);
   const lowerUrl = rawUrl.toLowerCase();
   const isFlipbook = lowerUrl.includes("designrr.page") || lowerUrl.includes("type=fp") || lowerUrl.includes("flipbook");
+  const priceNum = p.price != null ? Number(p.price) : undefined;
 
   return {
     id: p.productId,
+    productId: p.productId,
     title,
     author,
-    category: "Digital",
+    category: p.categoryName?.trim() || "Digital",
     image: resolveBookImage(undefined, title, author),
     downloadUrl: rawUrl,
     isFlipbook,
+    price: priceNum != null && !Number.isNaN(priceNum) ? formatMoney(priceNum) : undefined,
   };
 }
 

@@ -22,7 +22,8 @@ const MENU_ITEMS: MenuItem[] = [
   { id: "landing", icon: Globe, label: "Home" },
   { id: "public-library", icon: LayoutGrid, label: "Public Library" },
   { id: "personal-library", icon: Heart, label: "Personal Library" },
-  { id: "wishlist", icon: ShoppingCart, label: "Wishlist" },
+  { id: "cart", icon: ShoppingCart, label: "Cart" },
+  { id: "wishlist", icon: BookOpen, label: "Wishlist" },
   { id: "login", icon: Globe, label: "Login" },
   { id: "reader", icon: BookOpen, label: "Reader" },
 ];

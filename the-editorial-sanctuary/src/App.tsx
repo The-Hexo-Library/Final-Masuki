@@ -28,6 +28,11 @@ import {
   EyeOff,
   LogOut,
   Pencil,
+  Camera,
+  CheckCircle,
+  Library,
+  CreditCard,
+  Calendar,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './hooks/useAuth';
@@ -51,6 +56,8 @@ import {
   getUserCategories,
   getUserLibraryPage,
   getSubscriptionPlansPublic,
+  getPublicCategories,
+  searchPublicLibrary,
   postCheckout,
   postSubscribe,
   removeCartItem,
@@ -88,12 +95,14 @@ const SAVED_WISHLIST_STORAGE_KEY = 'masuki_saved_wishlist';
 const LAST_PAGE_STORAGE_KEY = 'masuki_last_page';
 const ADMIN_STATS_REFRESH_MS = 15_000;
 const ORDER_ACTIVITY_EVENT = 'masuki:orders-updated';
+const PROFILE_PIC_KEY = 'masuki_profile_pic';
 
 const ALL_APP_PAGES: Page[] = [
   'landing',
   'public-library',
   'profile',
   'personal-library',
+  'cart',
   'wishlist',
   'subscription',
   'checkout',
@@ -175,13 +184,17 @@ const Navbar = ({
   isAuthenticated,
   isAdmin,
   onLogout,
+  onSearch,
 }: {
   currentPage: Page;
   setPage: (p: Page) => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
   onLogout: () => void;
-}) => (
+  onSearch?: (query: string) => void;
+}) => {
+  const [searchVal, setSearchVal] = useState('');
+  return (
   <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-outline-variant/15">
     <div className="max-w-screen-2xl mx-auto px-8 py-4 flex justify-between items-center">
       <div className="flex items-center gap-12">
@@ -203,6 +216,7 @@ const Navbar = ({
               : [
                   { id: 'public-library', label: 'Public Library' },
                   { id: 'personal-library', label: 'Personal Library' },
+                  { id: 'cart', label: 'Cart' },
                   { id: 'wishlist', label: 'Wishlist' },
                 ]
             ).map((item) => (
@@ -222,17 +236,19 @@ const Navbar = ({
         ) : null}
       </div>
       <div className="flex items-center gap-6">
-        <div className="relative hidden sm:block">
+        <form className="relative hidden sm:block" onSubmit={(e) => { e.preventDefault(); if (searchVal.trim() && onSearch) { onSearch(searchVal.trim()); } }}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant w-4 h-4" />
           <input 
             type="text" 
             placeholder="Search the archive..." 
+            value={searchVal}
+            onChange={(e) => setSearchVal(e.target.value)}
             className="bg-surface-container-highest border-none rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary w-64 outline-none"
           />
-        </div>
+        </form>
         <div className="flex gap-4">
           {isAuthenticated && !isAdmin ? (
-            <button className="text-primary hover:opacity-80 transition-opacity" onClick={() => setPage('wishlist')} aria-label="Open wishlist">
+            <button className="text-primary hover:opacity-80 transition-opacity" onClick={() => setPage('cart')} aria-label="Open cart">
               <ShoppingCart className="w-5 h-5" />
             </button>
           ) : null}
@@ -262,6 +278,28 @@ const Navbar = ({
       </div>
     </div>
   </nav>
+  );
+};
+
+/** Toast notification component */
+const Toast = ({ message, show, onClose }: { message: string; show: boolean; onClose: () => void }) => (
+  <AnimatePresence>
+    {show && message && (
+      <motion.div
+        initial={{ opacity: 0, y: 50, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.9 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="fixed bottom-24 md:bottom-8 right-8 z-[100] flex items-center gap-3 rounded-2xl bg-primary text-on-primary px-6 py-4 shadow-2xl"
+      >
+        <CheckCircle className="w-5 h-5 flex-shrink-0" />
+        <span className="text-sm font-medium">{message}</span>
+        <button onClick={onClose} className="ml-2 hover:opacity-70 transition-opacity" aria-label="Close notification">
+          <X className="w-4 h-4" />
+        </button>
+      </motion.div>
+    )}
+  </AnimatePresence>
 );
 
 const AdminUserStats = ({
@@ -996,6 +1034,9 @@ const LandingPage = ({
   isAuthenticated,
   newReleases,
   catalogTotal,
+  categories,
+  onBookClick,
+  onCategoryClick,
 }: {
   setPage: (p: Page) => void;
   onBeginReading: () => void;
@@ -1003,8 +1044,23 @@ const LandingPage = ({
   isAuthenticated: boolean;
   newReleases: Book[];
   catalogTotal: number;
+  categories?: CategoryRow[];
+  onBookClick?: (book: Book) => void;
+  onCategoryClick?: (categoryId: string) => void;
 }) => {
   const mostReadBooks = [...newReleases].reverse();
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const displayCategories = categories ?? [];
+  const visibleCategories = showAllCategories ? displayCategories : displayCategories.slice(0, 6);
+
+  const categoryColors = [
+    { bg: 'bg-primary', text: 'text-on-primary', sub: 'text-secondary-container' },
+    { bg: 'bg-secondary-container', text: 'text-primary', sub: 'text-on-secondary-container' },
+    { bg: 'bg-surface-container-highest', text: 'text-primary', sub: 'text-on-surface-variant' },
+    { bg: 'bg-tertiary-container', text: 'text-on-tertiary-container', sub: 'text-on-tertiary-container/70' },
+    { bg: 'bg-primary-container', text: 'text-on-primary', sub: 'text-on-primary/70' },
+    { bg: 'bg-surface-container-high', text: 'text-primary', sub: 'text-on-surface-variant' },
+  ];
 
   return (
   <div className="space-y-0">
@@ -1109,7 +1165,11 @@ const LandingPage = ({
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
-            {newReleases.map(book => <BookCard key={book.id} book={book} />)}
+            {newReleases.map(book => (
+              <div key={book.id} className="cursor-pointer" onClick={() => onBookClick?.(book)}>
+                <BookCard book={book} />
+              </div>
+            ))}
           </div>
         </div>
 
@@ -1119,7 +1179,11 @@ const LandingPage = ({
             <h2 className="font-headline text-5xl text-primary">Most Read</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
-            {mostReadBooks.map(book => <BookCard key={`most-read-${book.id}`} book={book} />)}
+            {mostReadBooks.map(book => (
+              <div key={`most-read-${book.id}`} className="cursor-pointer" onClick={() => onBookClick?.(book)}>
+                <BookCard book={book} />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1137,60 +1201,41 @@ const LandingPage = ({
             Forged by a collective of Harvard University Alumni, this library has more than a collection of books—it is a masterclass in professional evolution. We have distilled decades of Ivy League research and real-world executive experience into a definitive behavioral roadmap designed to turn every contributor into a powerhouse and every manager into a visionary.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[800px] md:h-[600px]">
-          <div className="md:col-span-2 relative group overflow-hidden rounded-xl bg-primary">
-            <img 
-              src="https://picsum.photos/seed/philosophy/1200/800" 
-              className="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-110" 
-              referrerPolicy="no-referrer"
-              alt="Philosophy"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-primary/90 to-transparent" />
-            <div className="absolute bottom-8 left-8">
-              <h3 className="font-headline text-4xl text-on-primary mb-2">Philosophy</h3>
-              <p className="text-secondary-container text-sm font-bold uppercase tracking-widest">{catalogTotal} Titles</p>
-            </div>
-          </div>
-          <div className="relative group overflow-hidden rounded-xl bg-secondary-container">
-            <img 
-              src="https://picsum.photos/seed/science/800/800" 
-              className="absolute inset-0 w-full h-full object-cover opacity-50 transition-transform duration-700 group-hover:scale-110" 
-              referrerPolicy="no-referrer"
-              alt="Science"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-secondary-container to-transparent" />
-            <div className="absolute bottom-8 left-8">
-              <h3 className="font-headline text-3xl text-primary mb-2">Science</h3>
-              <p className="text-on-secondary-container text-sm font-bold uppercase tracking-widest">{catalogTotal} Titles</p>
-            </div>
-          </div>
-          <div className="relative group overflow-hidden rounded-xl bg-surface-container-highest">
-            <img 
-              src="https://picsum.photos/seed/literature/800/800" 
-              className="absolute inset-0 w-full h-full object-cover opacity-40 transition-transform duration-700 group-hover:scale-110" 
-              referrerPolicy="no-referrer"
-              alt="Literature"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-surface-container-highest to-transparent" />
-            <div className="absolute bottom-8 left-8">
-              <h3 className="font-headline text-3xl text-primary mb-2">Literature</h3>
-              <p className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">{catalogTotal} Titles</p>
-            </div>
-          </div>
-          <div className="md:col-span-2 relative group overflow-hidden rounded-xl bg-tertiary-container">
-            <img 
-              src="https://picsum.photos/seed/economics/1200/800" 
-              className="absolute inset-0 w-full h-full object-cover opacity-30 transition-transform duration-700 group-hover:scale-110" 
-              referrerPolicy="no-referrer"
-              alt="Economics"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-tertiary-container to-transparent" />
-            <div className="absolute bottom-8 left-8">
-              <h3 className="font-headline text-4xl text-on-tertiary-container mb-2">Economics</h3>
-              <p className="text-on-tertiary-container/70 text-sm font-bold uppercase tracking-widest">{catalogTotal} Titles</p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {visibleCategories.map((cat, index) => {
+            const color = categoryColors[index % categoryColors.length];
+            return (
+              <div
+                key={cat.categoryId}
+                className={`relative group overflow-hidden rounded-2xl ${color.bg} min-h-[200px] cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl`}
+                onClick={() => onCategoryClick?.(cat.categoryId)}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                <div className="absolute inset-0 flex flex-col justify-end p-8">
+                  <h3 className={`font-headline text-3xl ${color.text} mb-2`}>{cat.name}</h3>
+                  <p className={`${color.sub} text-sm font-bold uppercase tracking-widest`}>
+                    {cat.bookCount ?? 0} {(cat.bookCount ?? 0) === 1 ? 'Title' : 'Titles'}
+                  </p>
+                </div>
+                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ArrowRight className={`w-5 h-5 ${color.text}`} />
+                </div>
+              </div>
+            );
+          })}
         </div>
+        {displayCategories.length > 6 && !showAllCategories && (
+          <div className="flex justify-center mt-8">
+            <button
+              type="button"
+              onClick={() => setShowAllCategories(true)}
+              className="border border-outline-variant/30 text-primary px-8 py-3 rounded-xl font-medium hover:bg-surface-container-low transition-colors flex items-center gap-2"
+            >
+              View More Categories
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </section>
 
@@ -1316,7 +1361,7 @@ const PersonalLibrary = ({
 
     {activeTab === 'reading' && (
       <div className="relative bg-surface-container-low rounded-2xl overflow-hidden p-8 md:p-12 flex flex-col md:flex-row gap-12 items-center">
-        <div className="w-64 aspect-square bg-on-background rounded-lg overflow-hidden book-shadow flex-shrink-0">
+        <div className="w-64 aspect-square rounded-lg overflow-hidden book-shadow flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0a2e3d, #14697a)' }}>
           <img 
             src={readingBook?.image || ''} 
             className="w-full h-full object-cover opacity-80" 
@@ -1375,6 +1420,11 @@ const PublicLibrary = ({
   onToggleViewMode,
   sortMode,
   onToggleSortMode,
+  searchQuery,
+  onSearchChange,
+  categoryFilter,
+  categories,
+  onCategoryClick,
 }: {
   books: Book[];
   totalCount: number;
@@ -1392,7 +1442,32 @@ const PublicLibrary = ({
   onToggleViewMode: (mode: 'grid' | 'list') => void;
   sortMode: 'latest' | 'title';
   onToggleSortMode: () => void;
-}) => (
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
+  categoryFilter?: string;
+  categories?: CategoryRow[];
+  onCategoryClick?: (name: string) => void;
+}) => {
+  const filteredBooks = useMemo(() => {
+    let result = books;
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          b.author.toLowerCase().includes(q) ||
+          (b.category && b.category.toLowerCase().includes(q))
+      );
+    }
+    if (categoryFilter) {
+      result = result.filter(
+        (b) => b.category && b.category.toLowerCase() === categoryFilter.toLowerCase()
+      );
+    }
+    return result;
+  }, [books, searchQuery, categoryFilter]);
+
+  return (
   <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-12">
     <div className="space-y-4">
       <h1 className="font-headline text-7xl text-primary">The Boundless Collection</h1>
@@ -1402,29 +1477,39 @@ const PublicLibrary = ({
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
       {/* Sidebar Filters */}
       <aside className="space-y-12">
-        <div className="space-y-6">
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary">Genre</h4>
-          <div className="space-y-4">
-            {['Classic Literature', 'Philosophy', 'Art History', 'Poetry', 'Scientific Journals'].map(genre => (
-              <label key={genre} className="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary" defaultChecked={genre === 'Classic Literature'} />
-                <span className="text-sm text-on-surface-variant group-hover:text-primary transition-colors">{genre}</span>
-              </label>
-            ))}
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary">Search Books</h4>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+            <input
+              type="text"
+              placeholder="Search by title, author..."
+              value={searchQuery ?? ''}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              className="w-full bg-surface-container-highest border-none rounded-xl pl-10 pr-4 py-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+            />
           </div>
         </div>
-        <div className="space-y-6">
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary">Author</h4>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-on-surface-variant" />
-            <input type="text" placeholder="Find author..." className="w-full bg-surface-container-highest border-none rounded-lg pl-10 pr-4 py-2 text-xs outline-none" />
-          </div>
-          <div className="space-y-4">
-            {['Virginia Woolf', 'Leo Tolstoy', 'James Baldwin', 'Albert Camus'].map(author => (
-              <label key={author} className="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary" />
-                <span className="text-sm text-on-surface-variant group-hover:text-primary transition-colors">{author}</span>
-              </label>
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary">Categories</h4>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => onCategoryClick?.('')}
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${!categoryFilter ? 'bg-primary text-on-primary font-bold' : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-highest'}`}
+            >
+              All Categories
+            </button>
+            {(categories ?? []).map(cat => (
+              <button
+                key={cat.categoryId}
+                type="button"
+                onClick={() => onCategoryClick?.(cat.name)}
+                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex justify-between items-center ${categoryFilter === cat.name ? 'bg-primary text-on-primary font-bold' : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-highest'}`}
+              >
+                <span>{cat.name}</span>
+                <span className={`text-xs ${categoryFilter === cat.name ? 'text-on-primary/70' : 'text-on-surface-variant/50'}`}>{cat.bookCount ?? 0}</span>
+              </button>
             ))}
           </div>
         </div>
@@ -1444,7 +1529,7 @@ const PublicLibrary = ({
           <p className="text-sm text-on-surface-variant" role="status">{actionMessage}</p>
         ) : null}
         <div className="bg-surface-container-low rounded-xl p-4 flex justify-between items-center">
-          <span className="text-xs text-on-surface-variant">Showing <span className="font-bold text-primary">{totalCount}</span> masterpieces</span>
+          <span className="text-xs text-on-surface-variant">Showing <span className="font-bold text-primary">{filteredBooks.length}</span> masterpieces</span>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 text-xs">
               <span className="text-on-surface-variant">SORT:</span>
@@ -1460,10 +1545,19 @@ const PublicLibrary = ({
         </div>
 
         <div className={viewMode === 'list' ? 'space-y-6' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8'}>
-          {books.map((book) => (
+          {filteredBooks.map((book) => (
             <div key={book.id} className={viewMode === 'list' ? 'rounded-2xl border border-outline-variant/15 bg-white/70 p-4' : 'space-y-3'}>
               <BookCard book={book} layout={viewMode === 'list' ? 'inline' : 'stacked'} />
-              <div className="grid grid-cols-2 gap-2">
+              {/* Metadata below cover */}
+              <div className="px-1 space-y-1.5 mt-2">
+                <h4 className="text-sm font-bold text-on-surface leading-snug line-clamp-2">{book.title}</h4>
+                <p className="text-xs text-on-surface-variant">{book.author}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">{book.category || 'Digital'}</span>
+                  {book.price && <span className="text-sm font-bold text-primary">{book.price}</span>}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
                   type="button"
                   className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-primary border border-outline-variant/30 rounded-lg hover:bg-surface-container-high transition-colors"
@@ -1506,56 +1600,54 @@ const PublicLibrary = ({
       </div>
     </div>
   </div>
-);
+  );
+};
 
-const WishlistPage = ({
+const CartPage = ({
   cart,
   cartBooks,
   onRemoveLine,
   onProceedCheckout,
-  savedBooks,
   onMoveToWishlist,
-  onSaveForLater,
-  onMoveSavedToCart,
-  onToggleExpanded,
-  showAll,
   onBrowseCatalog,
-  onRemoveFromWishlist,
   actionMessage,
 }: {
   cart: CartRow | null | undefined;
   cartBooks: Book[];
   onRemoveLine: (cartItemId: string) => void;
   onProceedCheckout: () => void;
-  savedBooks: Book[];
   onMoveToWishlist: (book: Book) => void;
-  onSaveForLater: (book: Book) => void;
-  onMoveSavedToCart: (book: Book) => void;
-  onRemoveFromWishlist: (book: Book) => void;
-  onToggleExpanded: () => void;
-  showAll: boolean;
   onBrowseCatalog: () => void;
   actionMessage?: string;
 }) => {
-  const summaryBooks = showAll ? cartBooks : cartBooks.slice(0, 2);
   const subNum = cartBooks.reduce(
     (sum, book) => sum + parseCurrencyAmount(book.price),
     0
   );
   const totalItems = cartBooks.length;
   return (
-  <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-24">
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
-      <div className="lg:col-span-2 space-y-12">
-        <div className="space-y-4">
-          <h1 className="font-headline text-6xl text-primary italic">The Shopping Cart</h1>
-          <p className="text-lg text-on-surface-variant italic">Review your selected volumes before they enter your permanent archive.</p>
-          {actionMessage ? <p className="text-sm text-on-surface-variant" role="status">{actionMessage}</p> : null}
-        </div>
-        <div className="space-y-8">
-          {summaryBooks.map(book => (
-            <div key={book.id} className="flex gap-8 p-6 bg-surface-container-low rounded-xl border border-outline-variant/15 group">
-              <div className="w-32 aspect-[3/4] bg-on-background rounded-lg overflow-hidden book-shadow flex-shrink-0">
+  <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-16">
+    <div className="space-y-4">
+      <h1 className="font-headline text-6xl text-primary italic">Shopping Cart</h1>
+      <p className="text-lg text-on-surface-variant italic">Review your selected volumes before they enter your permanent archive.</p>
+      {actionMessage ? <p className="text-sm text-on-surface-variant" role="status">{actionMessage}</p> : null}
+    </div>
+
+    {cartBooks.length === 0 ? (
+      <div className="text-center py-20 space-y-6">
+        <ShoppingCart className="w-16 h-16 mx-auto text-on-surface-variant/30" />
+        <h2 className="font-headline text-3xl text-primary italic">Your cart is empty</h2>
+        <p className="text-on-surface-variant max-w-md mx-auto">Browse our collection and add books to your cart to get started.</p>
+        <button type="button" onClick={onBrowseCatalog} className="primary-gradient text-on-primary px-8 py-3 rounded-xl font-bold uppercase tracking-widest text-xs">
+          Browse Library
+        </button>
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+        <div className="lg:col-span-2 space-y-6">
+          {cartBooks.map(book => (
+            <div key={book.id} className="flex gap-8 p-6 bg-surface-container-low rounded-xl border border-outline-variant/15 group hover:shadow-md transition-shadow">
+              <div className="w-32 aspect-[3/4] rounded-lg overflow-hidden book-shadow flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0a2e3d, #14697a)' }}>
                 <img src={book.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" alt={book.title} />
               </div>
               <div className="flex-grow flex flex-col justify-between py-2">
@@ -1567,98 +1659,114 @@ const WishlistPage = ({
                   <p className="text-sm text-on-surface-variant">By {book.author} • {book.category}</p>
                 </div>
                 <div className="flex justify-between items-end">
-                  <div className="flex gap-4">
-                    <button type="button" onClick={() => onMoveToWishlist(book)} className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline">Move to Wishlist</button>
-                    <button type="button" onClick={() => onSaveForLater(book)} className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-primary">Save for Later</button>
+                  <button type="button" onClick={() => onMoveToWishlist(book)} className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline">Move to Wishlist</button>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Single copy</span>
+                    <p className="font-headline text-2xl text-primary italic">{book.price}</p>
                   </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Single copy</span>
-                      <p className="font-headline text-2xl text-primary italic">{book.price}</p>
-                    </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
-      </div>
-      <aside className="space-y-8">
-        <div className="bg-surface-container-low p-12 rounded-2xl space-y-8 sticky top-32">
-          <h3 className="font-headline text-3xl text-primary italic">Order Summary</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between text-sm text-on-surface-variant">
-              <span>Subtotal ({totalItems} Items)</span>
-              <span>{formatMoney(subNum)}</span>
+        <aside className="space-y-8">
+          <div className="bg-surface-container-low p-12 rounded-2xl space-y-8 sticky top-32">
+            <h3 className="font-headline text-3xl text-primary italic">Order Summary</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between text-sm text-on-surface-variant">
+                <span>Subtotal ({totalItems} Items)</span>
+                <span>{formatMoney(subNum)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-on-surface-variant">
+                <span>Archival Fee</span>
+                <span>{formatMoney(0)}</span>
+              </div>
+              <div className="flex justify-between text-on-surface-variant">
+                <span>Estimated Tax</span>
+                <span>{formatMoney(0)}</span>
+              </div>
+              <div className="pt-4 border-t border-outline-variant/30 flex justify-between items-baseline">
+                <span className="font-headline text-2xl text-primary italic">Total</span>
+                <span className="font-headline text-4xl text-primary italic">{formatMoney(subNum)}</span>
+              </div>
             </div>
-            <div className="flex justify-between text-sm text-on-surface-variant">
-              <span>Archival Fee</span>
-              <span>{formatMoney(0)}</span>
-            </div>
-            <div className="flex justify-between text-on-surface-variant">
-              <span>Estimated Tax</span>
-              <span>{formatMoney(0)}</span>
-            </div>
-            <div className="pt-4 border-t border-outline-variant/30 flex justify-between items-baseline">
-              <span className="font-headline text-2xl text-primary italic">Total</span>
-              <span className="font-headline text-4xl text-primary italic">{formatMoney(subNum)}</span>
-            </div>
+            <button type="button" className="w-full primary-gradient text-on-primary py-4 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 group" onClick={onProceedCheckout}>
+              Proceed to Checkout <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <p className="text-[10px] text-center text-on-surface-variant leading-relaxed">
+              Secure SSL Encrypted Checkout. <br/> Read our <a href="#" className="underline">Archive Ethics</a> and Shipping Policy.
+            </p>
           </div>
-          <button type="button" className="w-full primary-gradient text-on-primary py-4 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 group" onClick={onProceedCheckout}>
-            Proceed to Checkout <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
-          <p className="text-[10px] text-center text-on-surface-variant leading-relaxed">
-            Secure SSL Encrypted Checkout. <br/> Read our <a href="#" className="underline">Archive Ethics</a> and Shipping Policy.
-          </p>
-        </div>
-      </aside>
+        </aside>
+      </div>
+    )}
+  </div>
+  );
+};
+
+const WishlistPage = ({
+  savedBooks,
+  onMoveSavedToCart,
+  onRemoveFromWishlist,
+  onBrowseCatalog,
+  actionMessage,
+}: {
+  savedBooks: Book[];
+  onMoveSavedToCart: (book: Book) => void;
+  onRemoveFromWishlist: (book: Book) => void;
+  onBrowseCatalog: () => void;
+  actionMessage?: string;
+}) => (
+  <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-16">
+    <div className="space-y-4">
+      <h1 className="font-headline text-6xl text-primary italic">My Wishlist</h1>
+      <p className="text-lg text-on-surface-variant italic">Books you've saved for later. Move them to your cart when you're ready to purchase.</p>
+      {actionMessage ? <p className="text-sm text-on-surface-variant" role="status">{actionMessage}</p> : null}
     </div>
 
-    <div className="space-y-12">
-      <div className="flex justify-between items-end border-b border-outline-variant/15 pb-4">
-        <h2 className="font-headline text-4xl text-primary italic">The Curated Wishlist</h2>
-        <button type="button" onClick={onToggleExpanded} className="text-[10px] font-bold uppercase tracking-widest text-primary border-b border-primary">{showAll ? 'Show Less' : `View All (${cartBooks.length})`}</button>
+    {savedBooks.length === 0 ? (
+      <div className="text-center py-20 space-y-6">
+        <Star className="w-16 h-16 mx-auto text-on-surface-variant/30" />
+        <h2 className="font-headline text-3xl text-primary italic">Your wishlist is empty</h2>
+        <p className="text-on-surface-variant max-w-md mx-auto">Save books you're interested in to your wishlist and come back to them later.</p>
+        <button type="button" onClick={onBrowseCatalog} className="primary-gradient text-on-primary px-8 py-3 rounded-xl font-bold uppercase tracking-widest text-xs">
+          Browse Library
+        </button>
       </div>
-      {savedBooks.length > 0 ? (
-        <div className="space-y-4 rounded-2xl border border-outline-variant/15 bg-surface-container-low p-6">
-          <div className="flex items-center justify-between">
-            <h3 className="font-headline text-2xl text-primary italic">Saved for Later</h3>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{savedBooks.length} Items</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {savedBooks.map(book => (
-              <div key={book.id} className="space-y-6">
-                <div className="relative">
-                  <BookCard book={book} variant="wishlist" />
-                  <button 
-                    type="button" 
-                    onClick={() => onRemoveFromWishlist(book)}
-                    className="absolute top-2 right-2 p-2 rounded-full bg-background/80 backdrop-blur-sm text-on-surface-variant hover:text-primary hover:bg-background transition-all group"
-                    title="Remove from wishlist"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <button type="button" onClick={() => onMoveSavedToCart(book)} className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:underline flex justify-end">
-                  Move to Cart
+    ) : (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{savedBooks.length} {savedBooks.length === 1 ? 'Item' : 'Items'} Saved</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {savedBooks.map(book => (
+            <div key={book.id} className="space-y-4 rounded-2xl border border-outline-variant/15 bg-surface-container-low p-4 hover:shadow-md transition-shadow">
+              <div className="relative">
+                <BookCard book={book} variant="wishlist" />
+                <button 
+                  type="button" 
+                  onClick={() => onRemoveFromWishlist(book)}
+                  className="absolute top-2 right-2 p-2 rounded-full bg-background/80 backdrop-blur-sm text-on-surface-variant hover:text-primary hover:bg-background transition-all"
+                  title="Remove from wishlist"
+                >
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-            ))}
-          </div>
+              <div className="px-1 space-y-1">
+                <h4 className="text-sm font-bold text-on-surface leading-snug line-clamp-2">{book.title}</h4>
+                <p className="text-xs text-on-surface-variant">{book.author}</p>
+                {book.price && <p className="text-sm font-bold text-primary">{book.price}</p>}
+              </div>
+              <button type="button" onClick={() => onMoveSavedToCart(book)} className="w-full py-2.5 text-[10px] font-bold uppercase tracking-widest text-on-primary rounded-lg primary-gradient flex items-center justify-center gap-2">
+                <ShoppingCart className="w-3.5 h-3.5" /> Move to Cart
+              </button>
+            </div>
+          ))}
         </div>
-      ) : null}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
-        {summaryBooks.map(book => (
-          <div key={book.id} className="space-y-6">
-            <BookCard book={book} variant="wishlist" />
-            <button type="button" onClick={onBrowseCatalog} className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:underline flex justify-end">
-              Browse Library
-            </button>
-          </div>
-        ))}
       </div>
-    </div>
+    )}
   </div>
 );
-};
 
 const SubscriptionPage = ({
   plans,
@@ -2527,6 +2635,8 @@ const AdminVaultPage = ({
 
 const UserProfilePage = ({
   user,
+  setPage,
+  booksCount,
 }: {
   user: {
     userId: string;
@@ -2535,58 +2645,169 @@ const UserProfilePage = ({
     lastName: string;
     role: string;
   } | null;
+  setPage?: (p: Page) => void;
+  booksCount?: number;
 }) => {
   const fullName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Reader';
   const initials = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase() || 'R';
+  const [profilePic, setProfilePic] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(PROFILE_PIC_KEY);
+      if (saved) setProfilePic(saved);
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleProfilePicUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setProfilePic(dataUrl);
+        try { localStorage.setItem(PROFILE_PIC_KEY, dataUrl); } catch { /* ignore */ }
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
 
   return (
     <div className="max-w-screen-xl mx-auto px-8 py-12 space-y-10">
-      <div className="space-y-4">
-        <h1 className="font-headline text-6xl text-primary italic">My Profile</h1>
-        <p className="text-lg text-on-surface-variant max-w-[65ch]">
-          Manage your account details and view your registered information.
-        </p>
+      {/* Cover Banner */}
+      <div className="relative rounded-3xl overflow-hidden h-56 md:h-64 book-shadow">
+        <div className="absolute inset-0 primary-gradient" />
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute -top-20 -right-20 h-72 w-72 rounded-full bg-white/20 blur-3xl" />
+          <div className="absolute bottom-0 left-0 h-56 w-56 rounded-full bg-black/10 blur-3xl" />
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-background to-transparent" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-8">
-        <aside className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-8">
-          <div className="space-y-5">
-            <div className="w-20 h-20 rounded-full bg-primary text-on-primary flex items-center justify-center text-2xl font-bold tracking-wider">
-              {initials}
+      {/* Profile Info Card - overlapping the banner */}
+      <div className="-mt-24 relative z-10 px-4">
+        <div className="rounded-3xl border border-outline-variant/20 bg-white p-8 md:p-10 book-shadow">
+          <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
+            {/* Avatar with upload */}
+            <div className="relative group -mt-20 md:-mt-24 flex-shrink-0">
+              <div className="w-32 h-32 md:w-36 md:h-36 rounded-full border-4 border-white book-shadow overflow-hidden bg-primary text-on-primary flex items-center justify-center text-4xl font-bold tracking-wider">
+                {profilePic ? (
+                  <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleProfilePicUpload}
+                className="absolute bottom-1 right-1 w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg hover:scale-110 transition-transform border-2 border-white"
+                title="Upload profile picture"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
             </div>
-            <div className="space-y-1">
-              <h2 className="font-headline text-3xl text-primary italic">{fullName}</h2>
-              <p className="text-sm text-on-surface-variant">{user?.email ?? 'No email available'}</p>
-            </div>
-            <div className="pt-3">
-              <span className="rounded-full bg-white border border-outline-variant/30 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                Role: {(user?.role ?? 'USER').toUpperCase()}
-              </span>
+
+            {/* Name and info */}
+            <div className="flex-grow text-center md:text-left space-y-3 pt-2">
+              <div>
+                <h1 className="font-headline text-4xl md:text-5xl text-primary italic">{fullName}</h1>
+                <p className="text-on-surface-variant mt-1">{user?.email ?? 'No email available'}</p>
+              </div>
+              <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                <span className="rounded-full bg-surface-container-low border border-outline-variant/30 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                  {(user?.role ?? 'USER').toUpperCase()}
+                </span>
+                <span className="rounded-full bg-primary/10 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-primary">
+                  Active Member
+                </span>
+              </div>
             </div>
           </div>
-        </aside>
+        </div>
+      </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-6 space-y-2 hover:shadow-lg transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-primary" />
+            </div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Books Read</p>
+          </div>
+          <p className="font-headline text-4xl text-primary">{booksCount ?? 0}</p>
+        </div>
+        <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-6 space-y-2 hover:shadow-lg transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Library className="w-5 h-5 text-primary" />
+            </div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Library Size</p>
+          </div>
+          <p className="font-headline text-4xl text-primary">{booksCount ?? 0}</p>
+        </div>
+        <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-6 space-y-2 hover:shadow-lg transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-primary" />
+            </div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Member Since</p>
+          </div>
+          <p className="font-headline text-3xl text-primary">2025</p>
+        </div>
+      </div>
+
+      {/* Account Details & Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8">
         <section className="rounded-2xl border border-outline-variant/20 bg-white p-8">
           <h3 className="font-headline text-3xl text-primary italic mb-6">Account Details</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-1">
+            <div className="space-y-1 bg-surface-container-low rounded-xl p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">First Name</p>
-              <p className="text-sm text-on-surface">{user?.firstName ?? '-'}</p>
+              <p className="text-sm text-on-surface font-medium">{user?.firstName ?? '-'}</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 bg-surface-container-low rounded-xl p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Last Name</p>
-              <p className="text-sm text-on-surface">{user?.lastName ?? '-'}</p>
+              <p className="text-sm text-on-surface font-medium">{user?.lastName ?? '-'}</p>
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1 md:col-span-2 bg-surface-container-low rounded-xl p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Email</p>
-              <p className="text-sm text-on-surface break-all">{user?.email ?? '-'}</p>
+              <p className="text-sm text-on-surface break-all font-medium">{user?.email ?? '-'}</p>
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1 md:col-span-2 bg-surface-container-low rounded-xl p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">User ID</p>
-              <p className="text-sm text-on-surface break-all">{user?.userId ?? '-'}</p>
+              <p className="text-sm text-on-surface break-all font-mono">{user?.userId ?? '-'}</p>
             </div>
           </div>
         </section>
+
+        <aside className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-8 space-y-6">
+          <h3 className="font-headline text-3xl text-primary italic">Quick Actions</h3>
+          <div className="space-y-3">
+            {[
+              { label: 'View Library', icon: BookOpen, page: 'personal-library' as Page },
+              { label: 'Browse Catalog', icon: Search, page: 'public-library' as Page },
+              { label: 'Manage Subscription', icon: CreditCard, page: 'subscription' as Page },
+              { label: 'Shopping Cart', icon: ShoppingCart, page: 'cart' as Page },
+            ].map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                onClick={() => setPage?.(action.page)}
+                className="w-full flex items-center gap-4 px-5 py-4 rounded-xl bg-white border border-outline-variant/15 hover:border-primary hover:shadow-md transition-all group"
+              >
+                <action.icon className="w-5 h-5 text-on-surface-variant group-hover:text-primary transition-colors" />
+                <span className="text-sm font-medium text-on-surface-variant group-hover:text-primary transition-colors flex-grow text-left">{action.label}</span>
+                <ArrowRight className="w-4 h-4 text-on-surface-variant/50 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+              </button>
+            ))}
+          </div>
+        </aside>
       </div>
     </div>
   );
@@ -3008,13 +3229,24 @@ export default function App() {
   const [cartUiBooks, setCartUiBooks] = useState<Book[]>([]);
   const [adminEditingBookId, setAdminEditingBookId] = useState<string | null>(null);
   const [adminBookEditSaving, setAdminBookEditSaving] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [publicCategories, setPublicCategories] = useState<CategoryRow[]>([]);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 3000);
+  };
 
   const { user, signIn, signInAdmin, signUp, signOut, initializing, isAuthenticated } = useAuth();
   const isAdminUser = (user?.role ?? '').toUpperCase() === 'ADMIN';
   const publicPag = usePaginationState(0, PUBLIC_PAGE_SIZE);
   const adminPag = usePaginationState(0, 50);
   const ordersPag = usePaginationState(0, 20);
-  const protectedPages: Page[] = ['public-library', 'profile', 'personal-library', 'wishlist', 'subscription', 'checkout', 'admin', 'admin-add-book', 'admin-edit-book', 'reader'];
+  const protectedPages: Page[] = ['public-library', 'profile', 'personal-library', 'cart', 'wishlist', 'subscription', 'checkout', 'admin', 'admin-add-book', 'admin-edit-book', 'reader'];
 
   const navigateToPage = (target: Page) => {
     if (!isAuthenticated && protectedPages.includes(target)) {
@@ -3066,6 +3298,12 @@ export default function App() {
       // ignore storage errors
     }
   }, [page]);
+
+  useEffect(() => {
+    getPublicCategories()
+      .then(setPublicCategories)
+      .catch(() => { /* silently ignore */ });
+  }, []);
 
   const catalogState = useFetch(() => fetchMergedPublicCatalog(), []);
   const catalogRows = catalogState.data ?? [];
@@ -3439,6 +3677,7 @@ export default function App() {
         // Show appropriate message based on whether it was already in cart
         const msg = isAlreadyInCart ? 'Item already in cart.' : 'Item added to cart.';
         setPublicActionMsg(msg);
+        showToast(isAlreadyInCart ? `"${book.title}" is already in your cart` : `"${book.title}" added to cart ✓`);
         // Auto-clear success message after 3 seconds
         setTimeout(() => setPublicActionMsg(''), 3000);
       } catch (e) {
@@ -3834,7 +4073,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {showNavbar && <Navbar currentPage={page} setPage={navigateToPage} isAuthenticated={isAuthenticated} isAdmin={isAdminUser} onLogout={signOut} />}
+      {showNavbar && <Navbar currentPage={page} setPage={navigateToPage} isAuthenticated={isAuthenticated} isAdmin={isAdminUser} onLogout={signOut} onSearch={(q) => { setSearchQuery(q); setCategoryFilter(''); navigateToPage('public-library'); }} />}
       
       <main className="flex-grow pb-[5.75rem] md:pb-0">
         <AnimatePresence mode="wait">
@@ -3853,6 +4092,16 @@ export default function App() {
                 isAuthenticated={isAuthenticated}
                 newReleases={newReleases}
                 catalogTotal={catalogRows.length}
+                categories={publicCategories}
+                onBookClick={(book) => { navigateToPage('public-library'); }}
+                onCategoryClick={(catId) => {
+                  const cat = publicCategories.find(c => c.categoryId === catId);
+                  if (cat) {
+                    setCategoryFilter(cat.name);
+                    setSearchQuery('');
+                    navigateToPage('public-library');
+                  }
+                }}
               />
             )}
             {page === 'personal-library' && (
@@ -3873,7 +4122,7 @@ export default function App() {
               )
             )}
             {page === 'profile' && !isAdminUser && (
-              <UserProfilePage user={user} />
+              <UserProfilePage user={user} setPage={navigateToPage} booksCount={purchasedPersonalBooks.length} />
             )}
             {page === 'public-library' && (
               <PublicLibrary
@@ -3893,21 +4142,29 @@ export default function App() {
                 onToggleViewMode={handlePublicViewMode}
                 sortMode={publicSortMode}
                 onToggleSortMode={handlePublicSortToggle}
+                searchQuery={searchQuery}
+                onSearchChange={(q) => { setSearchQuery(q); setCategoryFilter(''); }}
+                categoryFilter={categoryFilter}
+                categories={publicCategories}
+                onCategoryClick={(name) => { setCategoryFilter(name); setSearchQuery(''); }}
               />
             )}
-            {page === 'wishlist' && (
-              <WishlistPage
+            {page === 'cart' && (
+              <CartPage
                 cart={cart}
                 cartBooks={activeCartBooks}
                 onRemoveLine={handleRemoveCartLine}
                 onProceedCheckout={() => navigateToPage('checkout')}
-                savedBooks={savedForLater}
                 onMoveToWishlist={handleWishlistMoveToWishlist}
-                onSaveForLater={handleWishlistSaveForLater}
+                onBrowseCatalog={handleOpenCatalog}
+                actionMessage={wishlistActionMsg}
+              />
+            )}
+            {page === 'wishlist' && (
+              <WishlistPage
+                savedBooks={savedForLater}
                 onMoveSavedToCart={handleMoveSavedToCart}
                 onRemoveFromWishlist={handleRemoveFromWishlist}
-                onToggleExpanded={handleToggleWishlistExpanded}
-                showAll={wishlistExpanded}
                 onBrowseCatalog={handleOpenCatalog}
                 actionMessage={wishlistActionMsg}
               />
@@ -3926,7 +4183,7 @@ export default function App() {
             {page === 'checkout' && (
               <CheckoutPage
                 setPage={setPage}
-                cartBooks={cartBooks}
+                cartBooks={activeCartBooks}
                 subtotalLabel={formatMoney(Number(cart?.subtotal ?? 0))}
                 onFinalize={handleFinalizeCheckout}
                 onDownloadInvoice={handleDownloadInvoice}
@@ -4012,6 +4269,8 @@ export default function App() {
       {showFooter && <Footer onNavigate={navigateToPage} isAuthenticated={isAuthenticated} />}
 
       <FloatingMenu currentPage={page} onNavigate={navigateToPage} isAuthenticated={isAuthenticated} isAdmin={isAdminUser} />
+
+      <Toast message={toastMsg} show={toastVisible} onClose={() => setToastVisible(false)} />
     </div>
   );
 }
