@@ -1595,7 +1595,6 @@ const PublicLibrary = ({
           {filteredBooks.map((book) => (
             <div key={book.id} className={viewMode === 'list' ? 'rounded-2xl border border-outline-variant/15 bg-white/70 p-4' : 'space-y-3'}>
               <BookCard book={book} layout={viewMode === 'list' ? 'inline' : 'stacked'} />
-<<<<<<< HEAD
               {/* Metadata below cover */}
               <div className="px-1 space-y-1.5 mt-2">
                 <h4 className="text-sm font-bold text-on-surface leading-snug line-clamp-2">{book.title}</h4>
@@ -1605,23 +1604,7 @@ const PublicLibrary = ({
                   {book.price && <span className="text-sm font-bold text-primary">{book.price}</span>}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <button
-                  type="button"
-                  className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-primary border border-outline-variant/30 rounded-lg hover:bg-surface-container-high transition-colors"
-                  onClick={() => onAddToCart(book)}
-                >
-                  Add to Cart
-                </button>
-                <button
-                  type="button"
-                  className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-on-primary rounded-lg primary-gradient flex items-center justify-center gap-1"
-                  onClick={() => onRequestPurchaseAccess(book)}
-                >
-                  Purchase to View
-                </button>
-=======
-              <div className={(showAddToCart && showPurchaseToView) ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-1 gap-2'}>
+              <div className={(showAddToCart && showPurchaseToView) ? 'grid grid-cols-2 gap-2 mt-2' : 'grid grid-cols-1 gap-2 mt-2'}>
                 {showAddToCart ? (
                   <button
                     type="button"
@@ -1640,7 +1623,6 @@ const PublicLibrary = ({
                     Purchase to View
                   </button>
                 ) : null}
->>>>>>> 35fbe4097f411d978d275ebbf4a7967f9e0956d2
               </div>
             </div>
           ))}
@@ -4419,7 +4401,7 @@ export default function App() {
                 busy={adminBookSaving}
                 error={adminActionError}
                 onCancel={() => navigateToPage('admin')}
-                onRefreshCategories={categoriesState.refetch}
+                onRefreshCategories={async () => { categoriesState.refetch(); }}
                 onSubmit={handleAdminSubmitBookForm}
               />
             )}

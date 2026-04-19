@@ -52,7 +52,6 @@ function hashSeed(value: string): number {
   return Math.abs(hash);
 }
 
-<<<<<<< HEAD
 function pickCoverPalette(seed: number): { top: string; bottom: string; accent: string } {
   const palettes = [
     { top: "#0a2e3d", bottom: "#14697a", accent: "#67c7d4" },
@@ -63,10 +62,6 @@ function pickCoverPalette(seed: number): { top: string; bottom: string; accent: 
     { top: "#0e3848", bottom: "#198590", accent: "#72d1db" },
   ];
   return palettes[seed % palettes.length];
-=======
-function pickCoverPalette(_seed: number): { top: string; bottom: string; accent: string } {
-  return { top: "#0B1F66", bottom: "#2563EB", accent: "#93C5FD" };
->>>>>>> 35fbe4097f411d978d275ebbf4a7967f9e0956d2
 }
 
 function escapeXml(value: string): string {
@@ -177,16 +172,12 @@ export function publicRowToUiBook(p: PublicLibraryRow): UiBook {
   const author = p.author?.trim() || "Unknown";
   const rawUrl = normalizeDownloadUrl(p.fileUrl);
   const lowerUrl = rawUrl.toLowerCase();
-<<<<<<< HEAD
-  const isFlipbook = lowerUrl.includes("designrr.page") || lowerUrl.includes("type=fp") || lowerUrl.includes("flipbook");
-  const priceNum = p.price != null ? Number(p.price) : undefined;
-=======
   const isFlipbook =
     lowerUrl.includes("designrr.page") ||
     lowerUrl.includes("designrr.s3.amazonaws.com") ||
     lowerUrl.includes("type=fp") ||
     lowerUrl.includes("flipbook");
->>>>>>> 35fbe4097f411d978d275ebbf4a7967f9e0956d2
+  const priceNum = p.price != null ? Number(p.price) : undefined;
 
   return {
     id: p.productId,
