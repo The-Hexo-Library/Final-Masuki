@@ -176,6 +176,52 @@ function parseCurrencyAmount(value: string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function isFlipbookUrl(url: string | undefined): boolean {
+  const normalized = String(url ?? '').trim().toLowerCase();
+  if (!normalized) return false;
+  return /(designrr\.page|designrr\.s3\.amazonaws\.com|type=fp|flipbook)/i.test(normalized);
+}
+
+function isFlipbookBook(book: Pick<Book, 'isFlipbook' | 'fileUrl' | 'downloadUrl'>): boolean {
+  return Boolean(book.isFlipbook) || isFlipbookUrl(book.fileUrl) || isFlipbookUrl(book.downloadUrl);
+}
+
+function normalizeBookLookupText(value: string | undefined): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function getBookSignature(book: Pick<Book, 'title' | 'author'>): string {
+  const title = normalizeBookLookupText(book.title);
+  const author = normalizeBookLookupText(book.author);
+  return `${title}::${author}`;
+}
+
+function getBlockedFlipbookReason(url: string | undefined): string | null {
+  if (!url) {
+    return 'Flipbook link is missing. Please ask the admin to attach a public reader URL.';
+  }
+
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const isPdf = parsed.pathname.toLowerCase().endsWith('.pdf');
+    const hasSignedQuery =
+      parsed.searchParams.has('X-Amz-Signature') ||
+      parsed.searchParams.has('x-amz-signature');
+
+    if (host === 'designrr.s3.amazonaws.com' && isPdf && !hasSignedQuery) {
+      return 'This Designrr S3 PDF is private (403). Use a public Designrr share link (for example designrr.page) instead.';
+    }
+  } catch {
+    return 'Flipbook URL is invalid. Please provide a full public URL.';
+  }
+
+  return null;
+}
+
 // --- Components ---
 
 const Navbar = ({
@@ -533,6 +579,7 @@ function BookCard({
 }) {
   const hasImage = typeof book.image === 'string' && book.image.trim().length > 0;
   const isInline = layout === 'inline';
+  const flipbookMode = isFlipbookBook(book);
 
   return (
     <motion.div 
@@ -540,7 +587,7 @@ function BookCard({
       className={`group cursor-pointer ${isInline ? 'flex gap-6 items-start' : `space-y-6 ${variant === 'standard' && (book.id === '2' || book.id === '4') ? 'lg:mt-12' : ''}`}`}
     >
       <div className={`overflow-hidden rounded-lg relative bg-surface-container-highest book-shadow ${isInline ? 'aspect-[3/4] w-28 shrink-0' : 'aspect-[3/4]'}`}>
-        {variant === 'personal' && book.isFlipbook ? (
+        {variant === 'personal' && flipbookMode ? (
           <div className="absolute top-4 left-4 z-10 rounded-full bg-primary text-on-primary px-3 py-1 text-[10px] font-bold uppercase tracking-widest shadow-lg">
             Flipbook
           </div>
@@ -553,7 +600,7 @@ function BookCard({
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full p-4 bg-gradient-to-b from-surface-container-high to-surface-container-low flex flex-col justify-end">
+          <div className="w-full h-full p-4 bg-gradient-to-b from-blue-900 to-blue-600 flex flex-col justify-end">
             <h4 className="font-headline text-2xl text-primary leading-tight line-clamp-3">{book.title}</h4>
             <p className="text-sm text-on-surface-variant mt-2 line-clamp-2">By {book.author}</p>
           </div>
@@ -582,15 +629,11 @@ function BookCard({
           <button
             type="button"
             onClick={() => {
-              if (book.isFlipbook && book.fileUrl) {
-                window.open(book.fileUrl, '_blank', 'noopener,noreferrer');
-                return;
-              }
               onPrimaryAction?.(book);
             }}
             className="mt-4 w-full py-2 border border-outline-variant/30 rounded-lg text-xs font-bold uppercase tracking-widest text-primary hover:bg-surface-container-low transition-colors"
           >
-            {book.isFlipbook ? 'Open Flipbook' : 'Read Now'}
+            {flipbookMode ? 'Open Flipbook' : 'Read Now'}
           </button>
         )}
       </div>
@@ -1383,7 +1426,7 @@ const PersonalLibrary = ({
           </div>
           <div className="flex gap-4">
             <button type="button" onClick={() => onOpenReader(readingBook)} className="primary-gradient text-on-primary px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-              <BookOpen className="w-4 h-4" /> Read Now
+              <BookOpen className="w-4 h-4" /> {readingBook && isFlipbookBook(readingBook) ? 'Open Flipbook' : 'Read Now'}
             </button>
             <button type="button" onClick={onOpenCatalog} className="px-8 py-3 border border-outline-variant/30 rounded-lg font-bold uppercase tracking-widest text-xs text-primary hover:bg-surface-container-high transition-colors">
               Details
@@ -1414,6 +1457,8 @@ const PublicLibrary = ({
   totalCount,
   onAddToCart,
   onRequestPurchaseAccess,
+  showAddToCart = true,
+  showPurchaseToView = true,
   actionMessage,
   pagination,
   viewMode,
@@ -1430,6 +1475,8 @@ const PublicLibrary = ({
   totalCount: number;
   onAddToCart: (book: Book) => void;
   onRequestPurchaseAccess: (book: Book) => void;
+  showAddToCart?: boolean;
+  showPurchaseToView?: boolean;
   actionMessage?: string;
   pagination: {
     onPrev: () => void;
@@ -1548,6 +1595,7 @@ const PublicLibrary = ({
           {filteredBooks.map((book) => (
             <div key={book.id} className={viewMode === 'list' ? 'rounded-2xl border border-outline-variant/15 bg-white/70 p-4' : 'space-y-3'}>
               <BookCard book={book} layout={viewMode === 'list' ? 'inline' : 'stacked'} />
+<<<<<<< HEAD
               {/* Metadata below cover */}
               <div className="px-1 space-y-1.5 mt-2">
                 <h4 className="text-sm font-bold text-on-surface leading-snug line-clamp-2">{book.title}</h4>
@@ -1572,6 +1620,27 @@ const PublicLibrary = ({
                 >
                   Purchase to View
                 </button>
+=======
+              <div className={(showAddToCart && showPurchaseToView) ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-1 gap-2'}>
+                {showAddToCart ? (
+                  <button
+                    type="button"
+                    className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-primary border border-outline-variant/30 rounded-lg hover:bg-surface-container-high transition-colors"
+                    onClick={() => onAddToCart(book)}
+                  >
+                    Add to Cart
+                  </button>
+                ) : null}
+                {showPurchaseToView ? (
+                  <button
+                    type="button"
+                    className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-on-primary rounded-lg primary-gradient flex items-center justify-center gap-1"
+                    onClick={() => onRequestPurchaseAccess(book)}
+                  >
+                    Purchase to View
+                  </button>
+                ) : null}
+>>>>>>> 35fbe4097f411d978d275ebbf4a7967f9e0956d2
               </div>
             </div>
           ))}
@@ -2818,14 +2887,14 @@ const AdminAddBookPage = ({
   busy,
   error,
   onCancel,
-  onCreateDefaultCategory,
+  onRefreshCategories,
   onSubmit,
 }: {
   categories: CategoryRow[];
   busy: boolean;
   error?: string;
   onCancel: () => void;
-  onCreateDefaultCategory: () => Promise<void>;
+  onRefreshCategories: () => Promise<void>;
   onSubmit: (payload: {
     categoryId: string;
     title: string;
@@ -2852,12 +2921,11 @@ const AdminAddBookPage = ({
   const [bookFile, setBookFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState('');
   const [formError, setFormError] = useState('');
-
-  useEffect(() => {
-    if (!categoryId && categories.length > 0) {
-      setCategoryId(categories[0].categoryId);
-    }
-  }, [categories, categoryId]);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const OTHER_CATEGORY_VALUE = '__other__';
+  const fictionCategories = categories.filter(
+    (category) => category.name.trim().toLowerCase() === 'fiction'
+  );
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
@@ -2879,20 +2947,6 @@ const AdminAddBookPage = ({
 
       {error ? <p className="text-sm text-on-surface-variant" role="alert">{error}</p> : null}
       {formError ? <p className="text-sm text-on-surface-variant" role="alert">{formError}</p> : null}
-      {categories.length === 0 ? (
-        <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-4 flex items-center justify-between gap-4">
-          <p className="text-sm text-on-surface-variant">No categories found. Create one to enable selection.</p>
-          <button
-            type="button"
-            onClick={() => {
-              void onCreateDefaultCategory();
-            }}
-            className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-outline-variant/30 text-primary hover:bg-surface-container-high transition-colors"
-          >
-            Create Default Category
-          </button>
-        </div>
-      ) : null}
 
       <form
         className="bg-white rounded-2xl border border-outline-variant/20 p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-5"
@@ -2901,12 +2955,57 @@ const AdminAddBookPage = ({
           setFormError('');
           void (async () => {
             const parsedPrice = Number(price);
-            if (!categoryId) {
-              setFormError('Category is required.');
-              return;
-            }
             if (!title.trim() || !author.trim() || !sku.trim()) {
               setFormError('Title, author, and SKU are required.');
+              return;
+            }
+            let resolvedCategoryId = categoryId;
+            if (!resolvedCategoryId) {
+              setFormError('Select a category or choose Other.');
+              return;
+            }
+            if (resolvedCategoryId === OTHER_CATEGORY_VALUE) {
+              const trimmedName = newCategoryName.trim();
+              if (!trimmedName) {
+                setFormError('Enter a category name for Other.');
+                return;
+              }
+              const existingCategory = categories.find(
+                (c) => c.name.trim().toLowerCase() === trimmedName.toLowerCase()
+              );
+              if (existingCategory) {
+                resolvedCategoryId = existingCategory.categoryId;
+              } else {
+                const generatedSlug = trimmedName
+                  .toLowerCase()
+                  .replace(/[^a-z0-9\s-]/g, '')
+                  .replace(/\s+/g, '-')
+                  .replace(/-+/g, '-')
+                  .replace(/^-|-$/g, '')
+                  .slice(0, 120);
+                if (!generatedSlug) {
+                  setFormError('Category name must contain letters or numbers.');
+                  return;
+                }
+                try {
+                  const createdCategory = await createAdminCategory({
+                    name: trimmedName,
+                    slug: generatedSlug,
+                  });
+                  resolvedCategoryId = createdCategory.categoryId;
+                  await onRefreshCategories();
+                } catch (createCategoryError) {
+                  setFormError(
+                    createCategoryError instanceof Error
+                      ? createCategoryError.message
+                      : 'Failed to create new category.'
+                  );
+                  return;
+                }
+              }
+            }
+            if (!resolvedCategoryId) {
+              setFormError('Unable to resolve category. Please try again.');
               return;
             }
             const trimmedUrl = fileUrl.trim();
@@ -2917,6 +3016,23 @@ const AdminAddBookPage = ({
             if (trimmedUrl && !/^https?:\/\//i.test(trimmedUrl)) {
               setFormError('Book URL must start with http:// or https://');
               return;
+            }
+            if (trimmedUrl) {
+              try {
+                const parsed = new URL(trimmedUrl);
+                const isDesignrrS3 = parsed.hostname.toLowerCase() === 'designrr.s3.amazonaws.com';
+                const isPdf = parsed.pathname.toLowerCase().endsWith('.pdf');
+                const hasSignedQuery =
+                  parsed.searchParams.has('X-Amz-Signature') ||
+                  parsed.searchParams.has('x-amz-signature');
+                if (isDesignrrS3 && isPdf && !hasSignedQuery) {
+                  setFormError('This Designrr S3 PDF URL is private and returns 403. Use a public Designrr share URL (designrr.page) or a signed URL.');
+                  return;
+                }
+              } catch {
+                setFormError('Book URL is invalid. Please provide a full public URL.');
+                return;
+              }
             }
             if (bookFile) {
               const lowerName = bookFile.name.toLowerCase();
@@ -2931,7 +3047,7 @@ const AdminAddBookPage = ({
             }
 
             await onSubmit({
-              categoryId,
+              categoryId: resolvedCategoryId,
               title: title.trim(),
               author: author.trim(),
               sku: sku.trim(),
@@ -2952,14 +3068,28 @@ const AdminAddBookPage = ({
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
             className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none"
-            required
           >
-            <option value="" disabled>Select category</option>
-            {categories.map((c) => (
+            <option value="">Select category</option>
+            {fictionCategories.map((c) => (
               <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
             ))}
+            <option value={OTHER_CATEGORY_VALUE}>Other (Create New Category)</option>
           </select>
+          <p className="text-xs text-on-surface-variant">Choose an existing category or select Other to create a new one.</p>
         </label>
+
+        {categoryId === OTHER_CATEGORY_VALUE ? (
+          <label className="space-y-2">
+            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">New Category Name</span>
+            <input
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none"
+              placeholder="Enter category name"
+            />
+            <p className="text-xs text-on-surface-variant">If this category already exists, it will be reused automatically.</p>
+          </label>
+        ) : null}
 
         <label className="space-y-2">
           <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Title</span>
@@ -3334,6 +3464,28 @@ export default function App() {
       .map((book) => book);
   }, [catalogBooks, publicPag.page]);
 
+  const publicCatalogByProductId = useMemo(() => {
+    const byId = new Map<string, Book>();
+    for (const row of catalogRows) {
+      const mapped = publicRowToUiBook(row);
+      const key = String(mapped.id ?? '').trim().toLowerCase();
+      if (!key) continue;
+      if (!byId.has(key)) byId.set(key, mapped);
+    }
+    return byId;
+  }, [catalogRows]);
+
+  const publicCatalogBySignature = useMemo(() => {
+    const bySignature = new Map<string, Book>();
+    for (const row of catalogRows) {
+      const mapped = publicRowToUiBook(row);
+      const signature = getBookSignature(mapped);
+      if (!signature || signature === '::') continue;
+      if (!bySignature.has(signature)) bySignature.set(signature, mapped);
+    }
+    return bySignature;
+  }, [catalogRows]);
+
   const libState = useFetch(
     () => {
       if (initializing) return Promise.resolve([] as LibraryRow[]);
@@ -3434,10 +3586,35 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminFetch.data]);
 
-  const personalBooks = useMemo(
-    () => (libState.data ?? []).map(libraryRowToUiBook),
-    [libState.data]
-  );
+  const personalBooks = useMemo(() => {
+    return (libState.data ?? []).map((row) => {
+      const local = libraryRowToUiBook(row);
+      const catalogMatch =
+        publicCatalogByProductId.get(String(local.id ?? '').trim().toLowerCase()) ||
+        publicCatalogBySignature.get(getBookSignature(local));
+
+      if (!catalogMatch) {
+        return local;
+      }
+
+      const mergedUrl =
+        (local.fileUrl ?? '').trim() ||
+        (catalogMatch.downloadUrl ?? '').trim() ||
+        undefined;
+
+      const mergedIsFlipbook =
+        Boolean(local.isFlipbook) ||
+        Boolean(catalogMatch.isFlipbook) ||
+        Boolean(mergedUrl && /(designrr\.page|designrr\.s3\.amazonaws\.com|type=fp|flipbook)/i.test(mergedUrl));
+
+      return {
+        ...local,
+        isFlipbook: mergedIsFlipbook,
+        fileUrl: mergedUrl,
+        downloadUrl: local.downloadUrl ?? catalogMatch.downloadUrl,
+      };
+    });
+  }, [libState.data, publicCatalogByProductId, publicCatalogBySignature]);
   const purchasedPersonalBooks = useMemo(
     () => personalBooks.filter((book) => (book.accessType ?? '').toLowerCase() === 'purchased'),
     [personalBooks]
@@ -3511,12 +3688,19 @@ export default function App() {
   );
 
   const readerTitle = readingBook?.title || 'Reader';
-  const readerFormat = readingBook?.isFlipbook ? 'flipbook' : readingBook?.fileFormat;
+  const readerFormat = readingBook && isFlipbookBook(readingBook) ? 'flipbook' : readingBook?.fileFormat;
   const readerUrl = readingBook?.fileUrl ?? readingBook?.downloadUrl;
 
   const handleBeginReading = () => {
-    if (readingBook?.isFlipbook && readingBook.fileUrl) {
-      window.open(readingBook.fileUrl, '_blank', 'noopener,noreferrer');
+    const readingBookIsFlipbook = readingBook ? isFlipbookBook(readingBook) : false;
+    if (readingBookIsFlipbook && readerUrl) {
+      const blockedReason = getBlockedFlipbookReason(readerUrl);
+      if (blockedReason) {
+        setLibraryActionMsg(blockedReason);
+        return;
+      }
+      window.open(readerUrl, '_blank', 'noopener,noreferrer');
+      setLibraryActionMsg('');
       return;
     }
     if (readingBook) {
@@ -3533,8 +3717,25 @@ export default function App() {
 
   const handleOpenReader = (book?: Book) => {
     const targetBook = book?.id ? book : readingBook;
-    if (targetBook?.isFlipbook && targetBook?.fileUrl) {
-      window.open(targetBook.fileUrl, '_blank', 'noopener,noreferrer');
+    const fallbackCatalogMatch = targetBook
+      ? publicCatalogByProductId.get(String(targetBook.id ?? '').trim().toLowerCase()) ||
+        publicCatalogBySignature.get(getBookSignature(targetBook))
+      : undefined;
+    const targetUrl =
+      targetBook?.fileUrl ??
+      targetBook?.downloadUrl ??
+      fallbackCatalogMatch?.downloadUrl;
+    const targetIsFlipbook =
+      (targetBook ? isFlipbookBook(targetBook) : false) ||
+      (fallbackCatalogMatch ? isFlipbookBook(fallbackCatalogMatch) : false);
+    if (targetIsFlipbook && targetUrl) {
+      const blockedReason = getBlockedFlipbookReason(targetUrl);
+      if (blockedReason) {
+        setLibraryActionMsg(blockedReason);
+        return;
+      }
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      setLibraryActionMsg('');
       return;
     }
     if (!targetBook) {
@@ -3656,6 +3857,10 @@ export default function App() {
       if (!user) {
         setPublicActionMsg('Sign in to add books to cart.');
         navigateToPage('login');
+        return;
+      }
+      if ((user.role ?? '').toUpperCase() === 'ADMIN') {
+        setPublicActionMsg('Admin accounts cannot add books to cart.');
         return;
       }
       const productId = book.productId || book.id;
@@ -3781,6 +3986,10 @@ export default function App() {
   };
 
   const handlePublicPurchaseRequired = (book: Book) => {
+    if ((user?.role ?? '').toUpperCase() === 'ADMIN') {
+      setPublicActionMsg('Admin accounts cannot purchase titles from the public library.');
+      return;
+    }
     const title = book.title || 'This title';
     setPublicActionMsg(`${title} requires purchase before viewing. Add it to cart and complete checkout.`);
   };
@@ -3874,20 +4083,6 @@ export default function App() {
         setAdminActionError(e instanceof Error ? e.message : 'Failed to create category.');
       }
     })();
-  };
-
-  const handleCreateDefaultCategory = async () => {
-    setAdminActionError('');
-    try {
-      await createAdminCategory({
-        name: 'General',
-        slug: `general-${Date.now()}`,
-      });
-      await categoriesState.refetch();
-      setAdminActionError('Default category created. You can now select it in the form.');
-    } catch (e) {
-      setAdminActionError(e instanceof Error ? e.message : 'Failed to create default category.');
-    }
   };
 
   const handleAdminCreatePlan = () => {
@@ -4130,6 +4325,8 @@ export default function App() {
                 totalCount={catalogRows.length}
                 onAddToCart={handleAddToCart}
                 onRequestPurchaseAccess={handlePublicPurchaseRequired}
+                showAddToCart={!isAdminUser}
+                showPurchaseToView={!isAdminUser}
                 actionMessage={publicActionMsg}
                 pagination={{
                   onPrev: publicPag.goPrev,
@@ -4222,7 +4419,7 @@ export default function App() {
                 busy={adminBookSaving}
                 error={adminActionError}
                 onCancel={() => navigateToPage('admin')}
-                onCreateDefaultCategory={handleCreateDefaultCategory}
+                onRefreshCategories={categoriesState.refetch}
                 onSubmit={handleAdminSubmitBookForm}
               />
             )}
