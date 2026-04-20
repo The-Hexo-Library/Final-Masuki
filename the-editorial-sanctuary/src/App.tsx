@@ -1190,47 +1190,6 @@ const LandingPage = ({
       </div>
     </section>
 
-    {/* New Releases */}
-    <section className="py-24 bg-surface-container-low">
-      <div className="max-w-screen-2xl mx-auto px-8 space-y-16">
-        <div>
-          <div className="flex justify-between items-end mb-16">
-            <div className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">The Recent Collection</span>
-              <h2 className="font-headline text-5xl text-primary">Recently Added</h2>
-            </div>
-            <button 
-              onClick={() => setPage('public-library')}
-              className="text-primary font-medium flex items-center gap-2 group"
-            >
-              Explore Full Library 
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
-            {newReleases.map(book => (
-              <div key={book.id} className="cursor-pointer" onClick={() => onBookClick?.(book)}>
-                <BookCard book={book} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="mb-10 space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Reader Favorites</span>
-            <h2 className="font-headline text-5xl text-primary">Most Read</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
-            {mostReadBooks.map(book => (
-              <div key={`most-read-${book.id}`} className="cursor-pointer" onClick={() => onBookClick?.(book)}>
-                <BookCard book={book} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
 
     {/* Curated Shelves */}
     <section className="py-24 bg-surface">
@@ -1339,6 +1298,48 @@ const LandingPage = ({
           </p>
           <div className="inline-block px-12 py-6 bg-primary text-on-primary rounded-2xl font-bold tracking-wider text-xl shadow-lg border-2 border-primary/20">
             Invest in the Framework. Own the Results.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* New Releases */}
+    <section className="py-24 bg-surface-container-low">
+      <div className="max-w-screen-2xl mx-auto px-8 space-y-16">
+        <div>
+          <div className="flex justify-between items-end mb-16">
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">The Recent Collection</span>
+              <h2 className="font-headline text-5xl text-primary">Recently Added</h2>
+            </div>
+            <button 
+              onClick={() => setPage('public-library')}
+              className="text-primary font-medium flex items-center gap-2 group"
+            >
+              Explore Full Library 
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+            {newReleases.map(book => (
+              <div key={book.id} className="cursor-pointer" onClick={() => onBookClick?.(book)}>
+                <BookCard book={book} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-10 space-y-2">
+            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Reader Favorites</span>
+            <h2 className="font-headline text-5xl text-primary">Most Read</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+            {mostReadBooks.map(book => (
+              <div key={`most-read-${book.id}`} className="cursor-pointer" onClick={() => onBookClick?.(book)}>
+                <BookCard book={book} />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -2905,9 +2906,6 @@ const AdminAddBookPage = ({
   const [formError, setFormError] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
   const OTHER_CATEGORY_VALUE = '__other__';
-  const fictionCategories = categories.filter(
-    (category) => category.name.trim().toLowerCase() === 'fiction'
-  );
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
@@ -3052,7 +3050,7 @@ const AdminAddBookPage = ({
             className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none"
           >
             <option value="">Select category</option>
-            {fictionCategories.map((c) => (
+            {categories.map((c) => (
               <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
             ))}
             <option value={OTHER_CATEGORY_VALUE}>Other (Create New Category)</option>
