@@ -96,6 +96,7 @@ const LAST_PAGE_STORAGE_KEY = 'masuki_last_page';
 const ADMIN_STATS_REFRESH_MS = 15_000;
 const ORDER_ACTIVITY_EVENT = 'masuki:orders-updated';
 const PROFILE_PIC_KEY = 'masuki_profile_pic';
+const CORPORATE_PUNCHLINE = '"In the corporate world, digital books are the ultimate upgrade: they\'re the only way to reboot your leadership style without having to clear your cache."';
 
 const ALL_APP_PAGES: Page[] = [
   'landing',
@@ -512,9 +513,16 @@ const Footer = ({
           <button type="button" onClick={() => onNavigate('landing')} className="text-primary hover:opacity-80">
             <Globe className="w-5 h-5" />
           </button>
-          <button type="button" onClick={() => onNavigate('login')} className="text-primary hover:opacity-80">
+          <a
+            href="https://mail.google.com/mail/?view=cm&fs=1&to=contactmasuki@masukibooks.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:opacity-80"
+            aria-label="Email Masuki Books"
+            title="contactmasuki@masukibooks.com"
+          >
             <Mail className="w-5 h-5" />
-          </button>
+          </a>
         </div>
       </div>
       <div className="space-y-6">
@@ -523,7 +531,6 @@ const Footer = ({
           {([] as [string, import('./types/navigation').AppPage][]).concat([
             ['Terms of Service', 'terms-of-service'],
             ['Privacy Policy', 'privacy-policy'],
-            ['Archive Ethics', 'archive-ethics'],
           ]).map(([label, page]) => (
             <li key={label}>
               <button
@@ -561,6 +568,11 @@ const Footer = ({
         <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">ISSN 2764-9811</span>
         <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Printed in Spirit</span>
       </div>
+    </div>
+    <div className="max-w-screen-2xl mx-auto px-8 pb-8">
+      <p className="text-center text-xs text-on-surface-variant italic">
+        {CORPORATE_PUNCHLINE}
+      </p>
     </div>
   </footer>
 );
@@ -675,70 +687,67 @@ const ResourcePage = ({
 const TermsOfServicePage = ({ setPage }: { setPage: (p: Page) => void }) => (
   <ResourcePage
     setPage={setPage}
-    title="Terms of Service"
+    title="International Digital Terms and Conditions"
     content={
       <>
         <p>
-          Welcome to <span className="text-primary font-bold">The Digital Archivist</span>. These Terms of Service govern your use of our platform, website, and services. By accessing and using our services, you agree to be bound by these terms.
+          IMPORTANT: PLEASE READ THESE TERMS CAREFULLY. BY PURCHASING, DOWNLOADING, OR ACCESSING ANY DIGITAL CONTENT FROM Masukibooks.com YOU AGREE TO BE BOUND BY THESE TERMS.
         </p>
-        
-        <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">1. User Eligibility</h2>
-          <p>
-            You must be at least 13 years old to use The Digital Archivist. By creating an account, you represent that you have the legal capacity to enter into this agreement and that all information you provide is accurate and complete.
-          </p>
-        </section>
 
         <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">2. Intellectual Property Rights</h2>
-          <p>
-            The Digital Archivist respects intellectual property rights. All books, content, and materials available on our platform are protected by copyright and other laws. You may not reproduce, distribute, or transmit any content without proper authorization.
-          </p>
-          <p>
-            When you purchase access to a book, you are licensed to view and read the content personally. You do not own the book or have the right to modify, sell, or distribute it to others.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">3. User Conduct</h2>
-          <p>
-            You agree not to engage in any conduct that violates these terms or applicable laws, including but not limited to:
-          </p>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">1. Digital Content License (Not Sale)</h2>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Attempting to breach our security systems</li>
-            <li>Uploading or sharing malicious content</li>
-            <li>Harassing or abusing other users</li>
-            <li>Commercial exploitation of our platform</li>
-            <li>Violating any copyright or intellectual property rights</li>
+            <li>Grant of License: Upon payment of the applicable fees, MasukiBooks grants you a non-exclusive, non-transferable, non-sublicensable, personal license to access and view the digital content for your own private, non-commercial use.</li>
+            <li>No Ownership: You acknowledge that you do not acquire any ownership rights in the digital content. All titles, copyrights, and intellectual property remain the sole property of the publishers of MasukiBooks.</li>
+            <li>Restrictions: You are strictly prohibited from copying, sharing, distributing, selling, broadcasting, or modifying the digital content. Any unauthorized distribution (piracy) will result in immediate termination of access without refund and may lead to legal action.</li>
           </ul>
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">4. Account Responsibility</h2>
-          <p>
-            You are responsible for maintaining the confidentiality of your account credentials. You agree to notify us immediately of any unauthorized access or use of your account. We are not liable for any damages resulting from unauthorized activity on your account.
-          </p>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">2. No Refunds / &quot;Final Sale&quot; Policy</h2>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Immediate Performance: By clicking &quot;Purchase&quot; or &quot;Download,&quot; you expressly request that the digital content be made available to you immediately.</li>
+            <li>Waiver of Cooling-Off Period: You acknowledge that once the digital content is made available for download or streaming, you lose any statutory right to cancel the transaction or seek a refund, including any &quot;cooling-off&quot; periods provided by local consumer laws (e.g., EU Consumer Rights Directive). All sales are final.</li>
+          </ul>
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">5. Limitation of Liability</h2>
-          <p>
-            To the fullest extent permitted by law, The Digital Archivist is provided "as is" without warranties. We are not liable for any indirect, incidental, special, or consequential damages arising from your use of our platform.
-          </p>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">3. Technical Requirements and Compatibility</h2>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>User Responsibility: It is your sole responsibility to ensure that your device, software, and internet connection meet the technical requirements for the digital content. We are not responsible for your inability to open a file due to incompatible hardware or software.</li>
+            <li>DRM (Digital Rights Management): Content may be protected by DRM technology. You agree not to attempt to bypass, modify, or circumvent any encryption or digital watermarking attached to the files.</li>
+          </ul>
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">6. Termination</h2>
-          <p>
-            We reserve the right to terminate or suspend your account at any time for violations of these terms or for any reason we see fit. Upon termination, your access to all purchased content will cease.
-          </p>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">4. Jurisdiction and International Use</h2>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Geo-Filtering: We reserve the right to use &quot;geo-blocking&quot; technology to restrict access to digital content in certain territories due to licensing restrictions or legal compliance.</li>
+            <li>Compliance with Local Law: You are responsible for ensuring that your access to the digital content complies with the laws of your jurisdiction.</li>
+          </ul>
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">7. Changes to Terms</h2>
-          <p>
-            We may update these Terms of Service at any time. Your continued use of The Digital Archivist following such changes constitutes your acceptance of the updated terms.
-          </p>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">5. Account Security and Termination</h2>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Account Access: You are responsible for maintaining the confidentiality of your login credentials. Any activity occurring under your account is your responsibility.</li>
+            <li>Strict Termination: We reserve the right to terminate your access to the digital content immediately, without notice, if we suspect a breach of these terms, including sharing your account credentials with third parties.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">6. Disclaimer of Warranties and Limitation of Liability</h2>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>&quot;As Is&quot; Basis: All digital content is provided &quot;as is&quot; and &quot;as available.&quot; We do not warrant that the service will be uninterrupted or error-free.</li>
+            <li>Liability Cap: To the maximum extent permitted by law, our total liability for any claim shall be limited to the amount you actually paid for the specific digital product. We are not liable for &quot;indirect damages&quot; such as loss of data or device damage.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">7. Modifications to Service</h2>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Content Removal: We reserve the right to remove digital content from the store at any time. While we will make reasonable efforts to allow you to download previously purchased content, we do not guarantee perpetual access to the download link once the purchase is complete. You are encouraged to download and back up your purchases immediately.</li>
+          </ul>
         </section>
       </>
     }
@@ -752,84 +761,112 @@ const PrivacyPolicyPage = ({ setPage }: { setPage: (p: Page) => void }) => (
     content={
       <>
         <p>
-          <span className="text-primary font-bold">The Digital Archivist</span> is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information.
+          International Privacy &amp; Data Protection Policy
+        </p>
+        <p><strong>Effective Date:</strong> Jan 1, 2026</p>
+
+        <p>
+          This Privacy Policy describes how MasukiBooks (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) collects, uses, and protects your personal information. By using our website and purchasing digital content, you consent to the data practices described herein.
         </p>
 
         <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">1. Information We Collect</h2>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">1. Data Collection: &quot;The Minimum Necessary&quot;</h2>
           <p>
-            We collect information you provide directly, such as:
+            To provide digital books, we collect only the data essential for transaction fulfillment and legal compliance:
           </p>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Account registration details (name, email, password)</li>
-            <li>Payment information (processed securely through third-party providers)</li>
-            <li>Reading history and preferences</li>
-            <li>Communications and feedback you send us</li>
-          </ul>
-          <p className="mt-4">
-            We also automatically collect certain information, including:
-          </p>
-          <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Browser type and operating system</li>
-            <li>IP address and location data</li>
-            <li>Pages visited and time spent reading</li>
-            <li>Device identifiers and cookies</li>
+            <li>Identity Data: Name and username.</li>
+            <li>Contact Data: Email address (required for digital delivery).</li>
+            <li>Transaction Data: Records of digital products purchased.</li>
+            <li>Technical Data: IP address, browser type, and device identifiers (used for DRM enforcement and fraud prevention).</li>
+            <li>Payment Data: We do not store credit card numbers. All payments are processed by PCI-compliant third-party processors.</li>
           </ul>
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">2. How We Use Your Information</h2>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">2. Legal Basis for Processing (GDPR Compliance)</h2>
           <p>
-            We use the information we collect to:
+            For users in the European Economic Area (EEA) and UK, we process data under the following legal bases:
           </p>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Provide and improve our services</li>
-            <li>Process payments and manage your account</li>
-            <li>Send you updates and personalized recommendations</li>
-            <li>Respond to your inquiries and support requests</li>
-            <li>Monitor platform security and prevent fraud</li>
-            <li>Comply with legal obligations</li>
+            <li>Contractual Necessity: To deliver the digital book you purchased.</li>
+            <li>Legal Obligation: To comply with international tax and anti-money laundering laws.</li>
+            <li>Legitimate Interests: To prevent piracy, unauthorized sharing, and fraudulent transactions.</li>
           </ul>
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">3. Data Security</h2>
-          <p>
-            We implement industry-standard security measures to protect your information. However, no method of transmission over the internet is completely secure. While we strive to protect your data, we cannot guarantee absolute security.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">4. Third-Party Sharing</h2>
-          <p>
-            We do not sell your personal information to third parties. We may share information with service providers who assist us in operating our platform, only for purposes necessary to provide our services. These providers are bound by confidentiality agreements.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">5. Your Rights</h2>
-          <p>
-            You have the right to:
-          </p>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">3. Strict Prohibitions on Data Misuse</h2>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Access your personal information</li>
-            <li>Request corrections to inaccurate data</li>
-            <li>Request deletion of your account and associated data</li>
-            <li>Opt out of promotional communications</li>
+            <li>No Sale of Data: We do not sell, rent, or lease our customer lists to third parties.</li>
+            <li>Anti-Piracy Tracking: We reserve the right to embed unique, non-visible identifiers (digital watermarks) in our books. If a book is found on a piracy site, we will use the associated metadata to identify the account source and terminate service immediately.</li>
           </ul>
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">6. Cookies and Tracking</h2>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">4. International Data Transfers</h2>
           <p>
-            We use cookies to enhance your experience. You can control cookie settings through your browser preferences. Note that disabling cookies may affect platform functionality.
+            Your information may be transferred to, and maintained on, computers located outside of your state or country where data protection laws may differ.
           </p>
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-primary mt-8 mb-4">7. Changes to This Policy</h2>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">5. Data Retention Policy</h2>
           <p>
-            We may update this Privacy Policy periodically. We will notify you of significant changes via email or platform notification.
+            We retain your personal data only for as long as necessary to fulfil the purposes for which it was collected:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Active Accounts: Data is kept while your account is active to provide access to your digital library.</li>
+            <li>Legal Requirements: Transactional records are kept for to satisfy international tax audit requirements.</li>
+            <li>Deletion: Once data is no longer required, it is irreversibly anonymized or deleted.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">6. Your Rights (EEA, UK, and California)</h2>
+          <p>
+            Depending on your location, you have the following rights:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Access/Portability: The right to request a copy of your data.</li>
+            <li>Correction: The right to fix inaccurate data.</li>
+            <li>Erasure (&quot;Right to be Forgotten&quot;): The right to request data deletion, provided it does not conflict with our legal record-keeping obligations.</li>
+            <li>Opt-Out: The right to opt-out of automated profiling.</li>
+            <li>Verification: To protect your privacy, we require a strict identity verification process before fulfilling any data requests.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">7. Security Measures</h2>
+          <p>
+            We implement high-level technical security, including AES-256 encryption for data at rest and TLS/SSL for data in transit. However, no method of digital transmission is 100% secure. You acknowledge that you provide your data at your own risk.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">8. Use of Cookies and Tracking</h2>
+          <p>
+            We use cookies strictly for:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Essential Functionality: Keeping you logged in and managing your shopping cart.</li>
+            <li>Security: Detecting bot activity and preventing unauthorized login attempts.</li>
+            <li>Analytics: De-identified traffic analysis.</li>
+            <li>Note: We do not use third-party advertising cookies that track you across other websites.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">9. Changes to this Policy</h2>
+          <p>
+            We reserve the right to modify this policy at any time. Significant changes will be notified via the email address associated with your account. Continued use of the service constitutes acceptance of the updated policy.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">10. Contact and Data Protection Officer</h2>
+          <p>
+            For questions regarding your data, or to exercise your rights, contact our Data Protection Office at: <a href="mailto:contactmasuki@masukibooks.com" className="text-primary underline hover:opacity-80">contactmasuki@masukibooks.com</a>
           </p>
         </section>
       </>
@@ -1112,7 +1149,7 @@ const LandingPage = ({
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-transparent z-10" />
         <img 
-          src="https://picsum.photos/seed/library/1920/1080?blur=4" 
+          src="/assets/images/hero-library.jpeg" 
           alt="Library backdrop" 
           referrerPolicy="no-referrer"
           className="w-full h-full object-cover opacity-20"
@@ -1152,7 +1189,7 @@ const LandingPage = ({
                 {[1, 2, 3].map(i => (
                   <img 
                     key={i}
-                    src={`https://picsum.photos/seed/user${i}/100/100`} 
+                    src="/assets/images/user-avatar.jpeg" 
                     className="w-10 h-10 rounded-full border-2 border-background object-cover"
                     referrerPolicy="no-referrer"
                     alt="User"
@@ -1176,7 +1213,7 @@ const LandingPage = ({
           <div className="relative w-72 lg:w-96 aspect-[3/4] group">
             <div className="absolute inset-0 bg-surface-container-highest rounded-lg -rotate-3 transition-transform group-hover:-rotate-6" />
             <img 
-              src="https://picsum.photos/seed/featured/800/1000" 
+              src="/assets/images/user-avatar.jpeg" 
               alt="Featured Book" 
               referrerPolicy="no-referrer"
               className="relative w-full h-full object-cover rounded-lg book-shadow transition-transform group-hover:-translate-y-4 group-hover:-translate-x-2"
@@ -1984,7 +2021,7 @@ const SubscriptionPage = ({
 
     <section className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center pt-4">
       <div className="relative aspect-[4/3] overflow-hidden rounded-[2rem] bg-on-background book-shadow">
-        <img src="https://picsum.photos/seed/archiving/800/800" className="h-full w-full object-cover opacity-50" referrerPolicy="no-referrer" alt="Archiving" />
+        <img src="/assets/images/hero-library.jpeg" className="h-full w-full object-cover opacity-50" referrerPolicy="no-referrer" alt="Archiving" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
         <div className="absolute bottom-6 left-6 right-6 md:bottom-8 md:left-8 md:right-auto md:max-w-[320px] rounded-2xl border border-white/15 bg-white/75 p-6 backdrop-blur-xl">
           <p className="font-headline text-xl italic text-primary leading-snug">"A library is not a luxury but one of the necessities of life."</p>
@@ -2267,7 +2304,7 @@ const LoginPage = ({
     <div className="hidden lg:flex w-1/2 bg-primary relative p-24 flex-col justify-between overflow-hidden">
       <div className="absolute inset-0 opacity-20">
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-transparent to-transparent z-10" />
-        <img src="https://picsum.photos/seed/loginbg/1200/1200" className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="Login Background" />
+        <img src="/assets/images/login-bg.jpeg" className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="Login Background" />
       </div>
       <div className="relative z-20 space-y-4">
         <h1 className="text-4xl font-headline italic text-on-primary">Masuki Books</h1>
@@ -2283,7 +2320,7 @@ const LoginPage = ({
         <div className="flex items-center gap-4">
           <div className="flex -space-x-3">
             {[1, 2, 3].map(i => (
-              <img key={i} src={`https://picsum.photos/seed/u${i}/100/100`} className="w-10 h-10 rounded-full border-2 border-primary object-cover" referrerPolicy="no-referrer" alt="User" />
+              <img key={i} src="/assets/images/user-avatar.jpeg" className="w-10 h-10 rounded-full border-2 border-primary object-cover" referrerPolicy="no-referrer" alt="User" />
             ))}
           </div>
           <p className="text-xs text-on-primary/70">Secure access to your private library</p>
