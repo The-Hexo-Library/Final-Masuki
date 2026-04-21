@@ -2166,7 +2166,7 @@ const CheckoutPage = ({
             </div>
             <div className="col-span-2 space-y-2">
               <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Email Address</label>
-              <input type="email" placeholder="archivist@editorial.com" className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-sm outline-none" />
+              <input type="email" placeholder="Masukibooks@gmail.com" className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-sm outline-none" />
             </div>
           </div>
         </section>
@@ -2503,7 +2503,7 @@ const LoginPage = ({
           ) : null}
           <div className="space-y-2">
             <label className="text-xs font-bold text-on-surface-variant">Email Address</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="archivist@editorial.com" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" required />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="masukibooks@gmail.com" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" required />
           </div>
           {mode === 'signup' ? (
             <div className="space-y-2">
