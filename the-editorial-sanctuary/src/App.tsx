@@ -505,9 +505,9 @@ const Footer = ({
   <footer className="bg-surface-container border-t border-outline-variant/15 mt-24">
     <div className="max-w-screen-2xl mx-auto px-8 py-16 grid grid-cols-1 md:grid-cols-3 gap-12">
       <div className="space-y-6">
-        <span className="text-xl font-headline text-primary">The Digital Archivist</span>
+        <span className="text-xl font-headline text-primary">The Masuki Books</span>
         <p className="text-base font-headline text-on-surface-variant italic">
-          Preserving the human record, one digital page at a time. Join our community of lifelong learners.
+          In the corporate world, digital books are the ultimate upgrade: they are the only way to reboot your leadership style without having to clear your cache
         </p>
         <div className="flex gap-4">
           <button type="button" onClick={() => onNavigate('landing')} className="text-primary hover:opacity-80">
@@ -563,11 +563,8 @@ const Footer = ({
       </div>
     </div>
     <div className="max-w-screen-2xl mx-auto px-8 py-8 border-t border-outline-variant/15 flex flex-col md:flex-row justify-between items-center gap-4">
-      <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">© 2026 The Digital Archivist. All rights reserved.</span>
-      <div className="flex gap-8">
-        <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">ISSN 2764-9811</span>
-        <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Printed in Spirit</span>
-      </div>
+      <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">© 2026 The Masuki Books. All rights reserved.</span>
+     
     </div>
     <div className="max-w-screen-2xl mx-auto px-8 pb-8">
       <p className="text-center text-xs text-on-surface-variant italic">
@@ -881,7 +878,7 @@ const ArchiveEthicsPage = ({ setPage }: { setPage: (p: Page) => void }) => (
     content={
       <>
         <p>
-          <span className="text-primary font-bold">The Digital Archivist</span> is built on principles of cultural preservation, accessibility, and ethical stewardship of knowledge. This document outlines our commitment to ethical archival practices.
+          <span className="text-primary font-bold">The Masuki Books</span> is built on principles of cultural preservation, accessibility, and ethical stewardship of knowledge. This document outlines our commitment to ethical archival practices.
         </p>
 
         <section>
@@ -950,7 +947,7 @@ const ContactSupportPage = ({ setPage }: { setPage: (p: Page) => void }) => (
     content={
       <>
         <p>
-          We're here to help! Whether you have questions about your account, need technical assistance, or have feedback about <span className="text-primary font-bold">The Digital Archivist</span>, we'd love to hear from you.
+          We're here to help! Whether you have questions about your account, need technical assistance, or have feedback about <span className="text-primary font-bold">The Masuki Books</span>, we'd love to hear from you.
         </p>
 
         <section>
@@ -1003,7 +1000,7 @@ const ContactSupportPage = ({ setPage }: { setPage: (p: Page) => void }) => (
         <section>
           <h2 className="text-xl font-bold text-primary mt-8 mb-4">Feedback and Suggestions</h2>
           <p>
-            We value your feedback and suggestions for improving The Digital Archivist. Please don't hesitate to share your ideas—they help us build a better platform for everyone.
+            We value your feedback and suggestions for improving The Masuki Books. Please don't hesitate to share your ideas—they help us build a better platform for everyone.
           </p>
         </section>
       </>
@@ -1018,7 +1015,7 @@ const HelpCenterPage = ({ setPage }: { setPage: (p: Page) => void }) => (
     content={
       <>
         <p>
-          Welcome to the <span className="text-primary font-bold">The Digital Archivist</span> Help Center. Here you'll find answers to frequently asked questions and guides to help you get the most out of our platform.
+          Welcome to the <span className="text-primary font-bold">The Masuki Books</span> Help Center. Here you'll find answers to frequently asked questions and guides to help you get the most out of our platform.
         </p>
 
         <section>
