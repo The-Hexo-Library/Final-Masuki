@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { emitAppError } from "../services/errorBus";
+import { supabase, isSupabaseConfigured } from "../services/supabaseClient";
 import {
   clearStoredToken,
   getStoredToken,
@@ -50,6 +51,8 @@ export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [googleAuthLoading, setGoogleAuthLoading] = useState(false);
+  const supabaseListenerAttached = useRef(false);
 
   const applyAuthPayload = useCallback((auth: AuthPayload) => {
     resetAuthSessionGate();
@@ -84,6 +87,51 @@ export function useAuth() {
     window.addEventListener(SESSION_INVALID_EVENT, onInvalid);
     return () => {
       window.removeEventListener(SESSION_INVALID_EVENT, onInvalid);
+    };
+  }, []);
+
+  // Listen for Supabase auth state changes (handles Google OAuth redirect callback)
+  useEffect(() => {
+    if (!isSupabaseConfigured || supabaseListenerAttached.current) return;
+    supabaseListenerAttached.current = true;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (
+          (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') &&
+          session?.user
+        ) {
+          const supaUser = session.user;
+          const meta = supaUser.user_metadata ?? {};
+          const fullName = (meta.full_name ?? meta.name ?? '').trim();
+          const nameParts = fullName.split(/\s+/);
+          const firstName = nameParts[0] ?? supaUser.email?.split('@')[0] ?? 'User';
+          const lastName = nameParts.slice(1).join(' ') || firstName;
+
+          // Only apply if no backend JWT session is already active
+          const existingToken = getStoredToken();
+          if (!existingToken) {
+            resetAuthSessionGate();
+            setSessionExpired(false);
+            // Store the Supabase access token as the session token
+            setStoredToken(session.access_token);
+            const stored: StoredUser = {
+              userId: supaUser.id,
+              email: supaUser.email ?? '',
+              firstName,
+              lastName,
+              role: 'USER',
+            };
+            setStoredUser(stored);
+            setUser(storedToUser(stored));
+          }
+          setGoogleAuthLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -171,8 +219,46 @@ export function useAuth() {
     [applyAuthPayload]
   );
 
+  const signInWithGoogle = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      emitAppError({
+        topic: 'auth',
+        message: 'Supabase is not configured. Cannot sign in with Google.',
+        cause: 'signInWithGoogle',
+      });
+      throw new Error('Supabase is not configured for Google sign-in.');
+    }
+    setGoogleAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) {
+        setGoogleAuthLoading(false);
+        emitAppError({
+          topic: 'auth',
+          message: error.message,
+          cause: 'signInWithGoogle',
+        });
+        throw new Error(error.message);
+      }
+      // The browser will redirect to Google; on return, onAuthStateChange handles the session.
+    } catch (e) {
+      setGoogleAuthLoading(false);
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(msg);
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
+      // Sign out from Supabase as well (for Google OAuth users)
+      if (isSupabaseConfigured) {
+        await supabase.auth.signOut().catch(() => {});
+      }
       clearSession();
     } catch (e) {
       console.warn("[auth] signOut:", e);
@@ -188,6 +274,8 @@ export function useAuth() {
     signIn,
     signInAdmin,
     signUp,
+    signInWithGoogle,
+    googleAuthLoading,
     signOut,
   };
 }

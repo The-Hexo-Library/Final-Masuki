@@ -73,41 +73,56 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function splitLongWord(word: string, chunkSize: number): string[] {
-  if (word.length <= chunkSize) return [word];
-  const chunks: string[] = [];
-  for (let i = 0; i < word.length; i += chunkSize) {
-    chunks.push(word.slice(i, i + chunkSize));
+function estimateTextWidth(text: string, fontSize: number): number {
+  // Approximate serif glyph widths so line breaks track visual width better than char count.
+  let units = 0;
+  for (const ch of text) {
+    if (ch === " ") {
+      units += 0.33;
+    } else if (/[A-Z]/.test(ch)) {
+      units += 0.66;
+    } else if (/[MW]/.test(ch)) {
+      units += 0.82;
+    } else if (/[ilI1]/.test(ch)) {
+      units += 0.34;
+    } else {
+      units += 0.56;
+    }
   }
-  return chunks;
+  return units * fontSize;
 }
 
-function wrapTitleLines(title: string, maxCharsPerLine = 18): string[] {
+function wrapTitleLinesByWidth(title: string, maxLineWidth: number, fontSize: number): string[] {
   const words = (title || "Untitled").trim().split(/\s+/).filter(Boolean);
   if (!words.length) return ["Untitled"];
 
   const lines: string[] = [];
   let current = "";
 
-  for (const rawWord of words) {
-    const parts = splitLongWord(rawWord, maxCharsPerLine);
-    for (const word of parts) {
-      if (!current) {
-        current = word;
-        continue;
-      }
-      const candidate = `${current} ${word}`;
-      if (candidate.length <= maxCharsPerLine) {
-        current = candidate;
-      } else {
-        lines.push(current);
-        current = word;
-      }
+  for (const word of words) {
+    if (!current) {
+      current = word;
+      continue;
+    }
+    const candidate = `${current} ${word}`;
+    if (estimateTextWidth(candidate, fontSize) <= maxLineWidth) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = word;
     }
   }
 
   if (current) lines.push(current);
   return lines;
+}
+
+function clampTitleLines(lines: string[], maxLines = 6): string[] {
+  if (lines.length <= maxLines) return lines;
+  const limited = lines.slice(0, maxLines);
+  const last = limited[maxLines - 1] ?? "";
+  limited[maxLines - 1] = last.length > 1 ? `${last.slice(0, -1)}…` : "…";
+  return limited;
 }
 
 function isLikelyImageUrl(imageUrl: string): boolean {
@@ -131,8 +146,17 @@ export function generateBookCoverDataUrl(title: string, author?: string): string
   const safeAuthor = (author || "Unknown").trim() || "Unknown";
   const seed = hashSeed(`${safeTitle}|${safeAuthor}`);
   const palette = pickCoverPalette(seed);
-  const titleLines = wrapTitleLines(safeTitle, 18);
-  const fontSize = Math.max(14, 34 - titleLines.length * 2);
+  const maxTitleLines = 6;
+  const maxTitleWidth = 276;
+  let fontSize = 34;
+  let titleLines = wrapTitleLinesByWidth(safeTitle, maxTitleWidth, fontSize);
+
+  while ((titleLines.length > maxTitleLines || titleLines.some((line) => estimateTextWidth(line, fontSize) > maxTitleWidth)) && fontSize > 14) {
+    fontSize -= 2;
+    titleLines = wrapTitleLinesByWidth(safeTitle, maxTitleWidth, fontSize);
+  }
+
+  titleLines = clampTitleLines(titleLines, maxTitleLines);
   const lineHeight = Math.max(18, fontSize + 6);
   const maxTitleTop = 220;
   const minTitleTop = 145;
@@ -149,12 +173,15 @@ export function generateBookCoverDataUrl(title: string, author?: string): string
       <stop offset="0%" stop-color="${palette.top}"/>
       <stop offset="100%" stop-color="${palette.bottom}"/>
     </linearGradient>
+    <clipPath id="titleClip">
+      <rect x="38" y="132" width="284" height="200" />
+    </clipPath>
   </defs>
   <rect width="360" height="520" fill="url(#g)"/>
   <rect x="24" y="24" width="312" height="472" rx="20" fill="none" stroke="${palette.accent}" stroke-opacity="0.45"/>
   <rect x="24" y="342" width="312" height="1" fill="${palette.accent}" fill-opacity="0.35"/>
-  <text x="38" y="106" fill="#F8FAFC" font-size="15" font-family="Georgia, serif" letter-spacing="2">EDITORIAL ARCHIVE</text>
-  <text x="38" y="${titleY}" fill="#FFFFFF" font-size="${fontSize}" font-weight="700" font-family="Georgia, serif">${titleTspans}</text>
+  <text x="38" y="106" fill="#F8FAFC" font-size="15" font-family="Georgia, serif" letter-spacing="2">MASUKI BOOKS</text>
+  <text x="38" y="${titleY}" fill="#FFFFFF" font-size="${fontSize}" font-weight="700" font-family="Georgia, serif" clip-path="url(#titleClip)">${titleTspans}</text>
   <text x="38" y="392" fill="#E2E8F0" font-size="16" font-family="Arial, sans-serif">${escapeXml(safeAuthor)}</text>
 </svg>`;
 

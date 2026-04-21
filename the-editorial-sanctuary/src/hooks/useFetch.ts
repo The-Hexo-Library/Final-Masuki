@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface UseFetchOptions<T> {
   /** When omitted, arrays use length===0; objects with `items` use items.length===0. */
@@ -38,6 +38,7 @@ export function useFetch<T>(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | undefined>(undefined);
   const [tick, setTick] = useState(0);
+  const requestSeqRef = useRef(0);
 
   const refetch = useCallback(() => {
     setTick((t) => t + 1);
@@ -45,23 +46,25 @@ export function useFetch<T>(
 
   useEffect(() => {
     let cancelled = false;
+    const requestSeq = requestSeqRef.current + 1;
+    requestSeqRef.current = requestSeq;
     setLoading(true);
     setError(undefined);
 
     (async () => {
       try {
         const result = await factory();
-        if (!cancelled) {
+        if (!cancelled && requestSeqRef.current === requestSeq) {
           setData(result);
           setError(undefined);
         }
       } catch (e) {
-        if (!cancelled) {
+        if (!cancelled && requestSeqRef.current === requestSeq) {
           setData(undefined);
           setError(e instanceof Error ? e : new Error(String(e)));
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && requestSeqRef.current === requestSeq) setLoading(false);
       }
     })();
 

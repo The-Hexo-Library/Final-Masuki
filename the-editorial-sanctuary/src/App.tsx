@@ -96,6 +96,7 @@ const LAST_PAGE_STORAGE_KEY = 'masuki_last_page';
 const ADMIN_STATS_REFRESH_MS = 15_000;
 const ORDER_ACTIVITY_EVENT = 'masuki:orders-updated';
 const PROFILE_PIC_KEY = 'masuki_profile_pic';
+const DELETED_CART_ITEMS_STORAGE_KEY = 'masuki_deleted_cart_items';
 const CORPORATE_PUNCHLINE = '"In the corporate world, digital books are the ultimate upgrade: they\'re the only way to reboot your leadership style without having to clear your cache."';
 
 const ALL_APP_PAGES: Page[] = [
@@ -503,7 +504,7 @@ const Footer = ({
   isAuthenticated: boolean;
 }) => (
   <footer className="bg-surface-container border-t border-outline-variant/15 mt-24">
-    <div className="max-w-screen-2xl mx-auto px-8 py-16 grid grid-cols-1 md:grid-cols-3 gap-12">
+    <div className="max-w-screen-2xl mx-auto px-8 py-16 grid grid-cols-1 md:grid-cols-2 gap-12">
       <div className="space-y-6">
         <span className="text-xl font-headline text-primary">The Masuki Books</span>
         <p className="text-base font-headline text-on-surface-variant italic">
@@ -525,30 +526,13 @@ const Footer = ({
           </a>
         </div>
       </div>
-      <div className="space-y-6">
+      <div className="space-y-6 md:pl-8">
         <h5 className="text-xs font-bold uppercase tracking-widest text-primary">Resources</h5>
         <ul className="space-y-4">
           {([] as [string, import('./types/navigation').AppPage][]).concat([
             ['Terms of Service', 'terms-of-service'],
             ['Privacy Policy', 'privacy-policy'],
-          ]).map(([label, page]) => (
-            <li key={label}>
-              <button
-                onClick={() => onNavigate(page)}
-                className="text-base font-headline text-on-surface-variant hover:text-primary hover:underline text-left"
-              >
-                {label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="space-y-6">
-        <h5 className="text-xs font-bold uppercase tracking-widest text-primary">Support</h5>
-        <ul className="space-y-4">
-          {([] as [string, import('./types/navigation').AppPage][]).concat([
-            ['Contact Support', 'contact-support'],
-            ['Help Center', 'help-center'],
+            ['Contact us', 'contact-support'],
           ]).map(([label, page]) => (
             <li key={label}>
               <button
@@ -956,11 +940,75 @@ const ContactSupportPage = ({ setPage }: { setPage: (p: Page) => void }) => (
             You can reach our support team through the following channels:
           </p>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li><span className="font-bold">Email:</span> support@thedigitalarchivist.com</li>
+            <li><span className="font-bold">Email:</span> Contactmasuki@masukibooks.com</li>
             <li><span className="font-bold">Phone:</span> Available during business hours</li>
             <li><span className="font-bold">Contact Form:</span> Submit a message directly on our website</li>
             <li><span className="font-bold">Social Media:</span> Message us on our official social channels</li>
           </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-primary mt-8 mb-4">Contact Form</h2>
+          <p className="mb-4">
+            Fill out the form below and your default mail app will prepare a message to our team.
+          </p>
+          <form
+            action="mailto:Contactmasuki@masukibooks.com"
+            method="post"
+            encType="text/plain"
+            className="space-y-4"
+          >
+            <div>
+              <label htmlFor="contact-name" className="block text-sm font-bold mb-2">Name</label>
+              <input
+                id="contact-name"
+                name="Name"
+                type="text"
+                required
+                className="w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Your name"
+              />
+            </div>
+            <div>
+              <label htmlFor="contact-email" className="block text-sm font-bold mb-2">Email</label>
+              <input
+                id="contact-email"
+                name="Email"
+                type="email"
+                required
+                className="w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 outline-none focus:ring-1 focus:ring-primary"
+                placeholder="you@example.com"
+              />
+            </div>
+            <div>
+              <label htmlFor="contact-subject" className="block text-sm font-bold mb-2">Subject</label>
+              <input
+                id="contact-subject"
+                name="Subject"
+                type="text"
+                required
+                className="w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 outline-none focus:ring-1 focus:ring-primary"
+                placeholder="How can we help?"
+              />
+            </div>
+            <div>
+              <label htmlFor="contact-message" className="block text-sm font-bold mb-2">Message</label>
+              <textarea
+                id="contact-message"
+                name="Message"
+                required
+                rows={5}
+                className="w-full rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Write your message"
+              />
+            </div>
+            <button
+              type="submit"
+              className="inline-flex items-center rounded-full bg-primary px-6 py-3 text-sm font-bold uppercase tracking-widest text-on-primary transition-opacity hover:opacity-90"
+            >
+              Send Message
+            </button>
+          </form>
         </section>
 
         <section>
@@ -1096,7 +1144,7 @@ const HelpCenterPage = ({ setPage }: { setPage: (p: Page) => void }) => (
         <section>
           <h2 className="text-xl font-bold text-primary mt-8 mb-4">Still Need Help?</h2>
           <p>
-            If you can't find the answer you're looking for, please visit our Contact Support page or email us at support@thedigitalarchivist.com. Our team is happy to help!
+            If you can't find the answer you're looking for, please visit our Contact Support page or email us at Contactmasuki@masukibooks.com. Our team is happy to help!
           </p>
         </section>
       </>
@@ -2268,6 +2316,8 @@ const LoginPage = ({
   onSignIn,
   onSignInAdmin,
   onSignUp,
+  onSignInWithGoogle,
+  googleAuthLoading,
 }: {
   setPage: (p: Page) => void;
   onSignIn: (email: string, password: string) => Promise<void>;
@@ -2278,6 +2328,8 @@ const LoginPage = ({
     password: string,
     phone: string
   ) => Promise<void>;
+  onSignInWithGoogle: () => Promise<void>;
+  googleAuthLoading?: boolean;
 }) => {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [fullName, setFullName] = useState('');
@@ -2370,6 +2422,36 @@ const LoginPage = ({
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-outline-variant/30" /></div>
           <div className="relative flex justify-center text-xs uppercase tracking-widest text-on-surface-variant">
             <span className="bg-white px-4">SECURE AUTHENTICATION</span>
+          </div>
+        </div>
+
+        {/* Google Sign-In Button */}
+        <button
+          type="button"
+          disabled={googleAuthLoading || busy}
+          onClick={async () => {
+            setFormError('');
+            try {
+              await onSignInWithGoogle();
+            } catch (er) {
+              setFormError(er instanceof Error ? er.message : 'Google sign-in failed.');
+            }
+          }}
+          className="w-full flex items-center justify-center gap-3 border border-outline-variant/30 bg-white hover:bg-surface-container-low rounded-xl py-3.5 text-sm font-semibold text-on-surface transition-all duration-200 hover:shadow-md active:scale-[0.98] disabled:opacity-60"
+        >
+          <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          {googleAuthLoading ? 'Redirecting to Google...' : 'Continue with Google'}
+        </button>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-outline-variant/30" /></div>
+          <div className="relative flex justify-center text-xs uppercase tracking-widest text-on-surface-variant">
+            <span className="bg-white px-4">OR USE EMAIL</span>
           </div>
         </div>
         <form
@@ -3353,6 +3435,16 @@ export default function App() {
   const [libraryActionMsg, setLibraryActionMsg] = useState('');
   const [adminActionError, setAdminActionError] = useState('');
   const [optimisticallyDeletedBookIds, setOptimisticallyDeletedBookIds] = useState<Set<string>>(new Set());
+  const [optimisticallyDeletedCartItemIds, setOptimisticallyDeletedCartItemIds] = useState<Set<string>>(() => {
+    try {
+      const stored = sessionStorage.getItem(DELETED_CART_ITEMS_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[];
+        if (Array.isArray(parsed)) return new Set(parsed);
+      }
+    } catch { /* ignore */ }
+    return new Set();
+  });
   const [adminBookSaving, setAdminBookSaving] = useState(false);
   const [checkoutErr, setCheckoutErr] = useState('');
   const [landingLibraryTab, setLandingLibraryTab] = useState<'reading' | 'collections'>('reading');
@@ -3385,7 +3477,7 @@ export default function App() {
     setTimeout(() => setToastVisible(false), 3000);
   };
 
-  const { user, signIn, signInAdmin, signUp, signOut, initializing, isAuthenticated } = useAuth();
+  const { user, signIn, signInAdmin, signUp, signOut, signInWithGoogle, googleAuthLoading, initializing, isAuthenticated } = useAuth();
   const isAdminUser = (user?.role ?? '').toUpperCase() === 'ADMIN';
   const publicPag = usePaginationState(0, PUBLIC_PAGE_SIZE);
   const adminPag = usePaginationState(0, 50);
@@ -3645,9 +3737,13 @@ export default function App() {
 
   useEffect(() => {
     // Keep optimistic removals hidden until backend cart no longer contains them.
-    setOptimisticallyDeletedBookIds((current) => {
+    setOptimisticallyDeletedCartItemIds((current) => {
       if (current.size === 0) return current;
-      const serverIds = new Set(cartBooks.map((book) => book.cartItemId || book.id));
+      const serverIds = new Set(
+        cartBooks
+          .map((book) => String(book.cartItemId || book.id || '').trim())
+          .filter(Boolean)
+      );
       const next = new Set<string>();
       let changed = false;
 
@@ -3663,12 +3759,29 @@ export default function App() {
     });
   }, [cartBooks]);
 
+  // Persist optimistic cart deletions to sessionStorage so they survive page refresh
+  useEffect(() => {
+    try {
+      if (optimisticallyDeletedCartItemIds.size > 0) {
+        sessionStorage.setItem(
+          DELETED_CART_ITEMS_STORAGE_KEY,
+          JSON.stringify([...optimisticallyDeletedCartItemIds])
+        );
+      } else {
+        sessionStorage.removeItem(DELETED_CART_ITEMS_STORAGE_KEY);
+      }
+    } catch { /* ignore storage errors */ }
+  }, [optimisticallyDeletedCartItemIds]);
+
   useEffect(() => {
     // Sync from backend, but exclude optimistically deleted items
     setCartUiBooks(
-      cartBooks.filter((book) => !optimisticallyDeletedBookIds.has(book.cartItemId || book.id))
+      cartBooks.filter((book) => {
+        const lineId = String(book.cartItemId || book.id || '').trim();
+        return lineId ? !optimisticallyDeletedCartItemIds.has(lineId) : true;
+      })
     );
-  }, [cartBooks, optimisticallyDeletedBookIds]);
+  }, [cartBooks, optimisticallyDeletedCartItemIds]);
   
   const savedBookIds = useMemo(
     () => new Set(savedForLater.map((book) => book.productId).filter(Boolean)),
@@ -3681,6 +3794,15 @@ export default function App() {
       return !savedBookIds.has(book.productId);
     }),
     [cartUiBooks, savedBookIds]
+  );
+
+  const checkoutSubtotalNum = useMemo(
+    () =>
+      activeCartBooks.reduce(
+        (sum, book) => sum + parseCurrencyAmount(book.price),
+        0
+      ),
+    [activeCartBooks]
   );
 
   const uiPlans = useMemo(
@@ -3834,18 +3956,54 @@ export default function App() {
   const handleRemoveCartLine = (cartItemId: string) => {
     setWishlistActionMsg('');
     // Track this as optimistically deleted so it doesn't come back
-    setOptimisticallyDeletedBookIds((current) => new Set([...current, cartItemId]));
+    const normalizedCartItemId = String(cartItemId || '').trim();
+    if (!normalizedCartItemId) return;
+    setOptimisticallyDeletedCartItemIds((current) => new Set([...current, normalizedCartItemId]));
     
     // Remove item from UI state optimistically
     setCartUiBooks((current) =>
-      current.filter((book) => book.cartItemId !== cartItemId && book.id !== cartItemId)
+      current.filter((book) => {
+        const lineId = String(book.cartItemId || book.id || '').trim();
+        return lineId !== normalizedCartItemId;
+      })
     );
     void (async () => {
       try {
-        await removeCartItem(cartItemId);
-        
-        // Wait a moment then refetch to ensure UI stays in sync with backend
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Resolve against the latest backend cart first to avoid deleting with a stale UI id.
+        const latestBefore = await getCart().catch(() => cartState.data ?? null);
+        const latestItems = latestBefore?.items ?? [];
+        const resolvedCartItemId =
+          latestItems.find(
+            (item) => String(item.cartItemId ?? '').trim() === normalizedCartItemId
+          )?.cartItemId ??
+          latestItems.find(
+            (item) => String(item.productId ?? '').trim() === normalizedCartItemId
+          )?.cartItemId ??
+          normalizedCartItemId;
+
+        const resolvedId = String(resolvedCartItemId).trim();
+        await removeCartItem(resolvedId);
+
+        // Verify deletion from the latest cart snapshot; fallback to quantity=0 if needed.
+        let verifyCart = await getCart().catch(() => null);
+        const isStillPresent = (row: CartRow | null) =>
+          Boolean(
+            row?.items?.some(
+              (item) => String(item.cartItemId ?? '').trim() === resolvedId
+            )
+          );
+
+        if (isStillPresent(verifyCart)) {
+          await updateCartItemQuantity(resolvedId, 0).catch(async () => {
+            await removeCartItem(resolvedId);
+          });
+          verifyCart = await getCart().catch(() => null);
+        }
+
+        if (isStillPresent(verifyCart)) {
+          throw new Error('Cart item still exists on server.');
+        }
+
         cartState.refetch();
         
         // Show success message
@@ -3853,12 +4011,20 @@ export default function App() {
         // Auto-clear success message after 3 seconds
         setTimeout(() => setWishlistActionMsg(''), 3000);
       } catch (e) {
-        // On error, remove from optimistically deleted and refetch to restore the item
-        setOptimisticallyDeletedBookIds((current) => {
-          const updated = new Set(current);
-          updated.delete(cartItemId);
-          return updated;
-        });
+        // Only roll back optimistic hiding if item truly still exists on server.
+        const latestAfterError = await getCart().catch(() => null);
+        const stillExists = Boolean(
+          latestAfterError?.items?.some(
+            (item) => String(item.cartItemId ?? '').trim() === normalizedCartItemId
+          )
+        );
+        if (stillExists) {
+          setOptimisticallyDeletedCartItemIds((current) => {
+            const updated = new Set(current);
+            updated.delete(normalizedCartItemId);
+            return updated;
+          });
+        }
         cartState.refetch();
         setWishlistActionMsg(e instanceof Error ? e.message : 'Unable to remove item.');
       }
@@ -4395,7 +4561,7 @@ export default function App() {
               <CheckoutPage
                 setPage={setPage}
                 cartBooks={activeCartBooks}
-                subtotalLabel={formatMoney(Number(cart?.subtotal ?? 0))}
+                subtotalLabel={formatMoney(checkoutSubtotalNum)}
                 onFinalize={handleFinalizeCheckout}
                 onDownloadInvoice={handleDownloadInvoice}
                 invoice={latestInvoice}
@@ -4408,6 +4574,8 @@ export default function App() {
                 onSignIn={signIn}
                 onSignInAdmin={signInAdmin}
                 onSignUp={signUp}
+                onSignInWithGoogle={signInWithGoogle}
+                googleAuthLoading={googleAuthLoading}
               />
             )}
             {page === 'admin' && (
