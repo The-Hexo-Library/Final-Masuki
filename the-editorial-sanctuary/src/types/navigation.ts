@@ -11,9 +11,11 @@ export type AppPage =
   | "admin"
   | "admin-add-book"
   | "admin-edit-book"
+  | "admin-contacts"
   | "reader"
   | "terms-of-service"
   | "privacy-policy"
   | "archive-ethics"
   | "contact-support"
+  | "my-queries"
   | "help-center";

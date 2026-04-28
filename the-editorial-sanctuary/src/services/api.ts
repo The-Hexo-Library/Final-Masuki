@@ -1221,5 +1221,112 @@ export async function searchPublicLibrary(query: string): Promise<PublicLibraryR
   return body?.data ?? [];
 }
 
+// --- Contact Form ---
+
+export interface ContactFormBody {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
+export interface ContactSubmissionRow {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: string;
+  adminReply?: string;
+  userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export async function postContactForm(body: ContactFormBody): Promise<ContactSubmissionRow> {
+  try {
+    const { data } = await api.post<ApiResponse<ContactSubmissionRow>>("/api/contact", body);
+    return unwrapApiResponse<ContactSubmissionRow>(data);
+  } catch (e) {
+    throw e instanceof ApiError ? e : new Error(extractErrorMessage(e));
+  }
+}
+
+export async function getAdminContactSubmissions(): Promise<ContactSubmissionRow[]> {
+  try {
+    const { data } = await api.get<ApiResponse<ContactSubmissionRow[]>>("/admin/contact-submissions");
+    return unwrapApiResponse<ContactSubmissionRow[]>(data) ?? [];
+  } catch (e) {
+    throw e instanceof ApiError ? e : new Error(extractErrorMessage(e));
+  }
+}
+
+export async function postAdminContactReply(body: {
+  contactSubmissionId: string;
+  replyMessage: string;
+}): Promise<ContactSubmissionRow> {
+  try {
+    const { data } = await api.post<ApiResponse<ContactSubmissionRow>>("/admin/contact-submissions/reply", body);
+    const row = unwrapApiResponse<ContactSubmissionRow>(data);
+    invalidateReadableCaches();
+    return row;
+  } catch (e) {
+    throw e instanceof ApiError ? e : new Error(extractErrorMessage(e));
+  }
+}
+
+export async function getMyContactSubmissions(): Promise<ContactSubmissionRow[]> {
+  try {
+    const { data } = await api.get<ApiResponse<ContactSubmissionRow[]>>("/api/contact/my-submissions");
+    return unwrapApiResponse<ContactSubmissionRow[]>(data) ?? [];
+  } catch (e) {
+    throw e instanceof ApiError ? e : new Error(extractErrorMessage(e));
+  }
+}
+
+// --- Notifications ---
+
+export interface NotificationRow {
+  id: string;
+  recipientUserId?: string;
+  recipientRole: string;
+  type: string;
+  title: string;
+  message: string;
+  referenceId?: string;
+  isRead: boolean;
+  createdAt?: string;
+}
+
+export async function getNotifications(): Promise<NotificationRow[]> {
+  try {
+    const { data } = await api.get<ApiResponse<NotificationRow[]>>("/api/notifications");
+    return unwrapApiResponse<NotificationRow[]>(data) ?? [];
+  } catch (e) {
+    throw e instanceof ApiError ? e : new Error(extractErrorMessage(e));
+  }
+}
+
+export async function getUnreadNotificationCount(): Promise<number> {
+  try {
+    const { data } = await api.get<ApiResponse<{ count: number }>>("/api/notifications/unread-count");
+    const result = unwrapApiResponse<{ count: number }>(data);
+    return result?.count ?? 0;
+  } catch (e) {
+    // Don't throw for poll failures
+    return 0;
+  }
+}
+
+export async function markNotificationRead(notificationId: string): Promise<NotificationRow> {
+  try {
+    const { data } = await api.patch<ApiResponse<NotificationRow>>(`/api/notifications/${notificationId}/read`);
+    return unwrapApiResponse<NotificationRow>(data);
+  } catch (e) {
+    throw e instanceof ApiError ? e : new Error(extractErrorMessage(e));
+  }
+}
+
 export { API_URL };
 export default api;
+
