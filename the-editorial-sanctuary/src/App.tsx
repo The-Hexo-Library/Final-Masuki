@@ -1980,7 +1980,7 @@ const LandingPage = ({
       {/* The Edge */}
       <section className="py-24 bg-surface px-8 text-center border-b border-outline-variant/15">
         <div className="max-w-[800px] mx-auto space-y-8">
-          <h2 className="font-headline text-5xl text-primary">The Edge Youâ€™ve Been Searching For</h2>
+          <h2 className="font-headline text-5xl text-primary">The Edge You’ve Been Searching For</h2>
           <p className="text-lg text-on-surface-variant leading-relaxed">
             Why settle for generic "leadership advice" when you can implement a validated framework used by the worldâ€™s most elite organizations? This is the difference between working hard and working right.
           </p>
@@ -3391,7 +3391,7 @@ const AdminVaultPage = ({
       </div>
 
       <div className="flex justify-between items-center text-xs text-on-surface-variant">
-        <span>Showing {filteredBooks.length} of {pagination.totalElements} archived volumes â€¢ Sorted by most recent</span>
+        <span>Showing {filteredBooks.length} of {pagination.totalElements} archived volumes • Sorted by most recent</span>
         <div className="flex gap-2">
           <button type="button" onClick={pagination.onPrev} className="w-8 h-8 rounded-full border border-outline-variant/30 flex items-center justify-center hover:border-primary transition-colors"><ChevronLeft className="w-4 h-4" /></button>
           {compactPaginationSlots(pagination.totalPages, pagination.currentPage1Based).map((slot, i) => (
