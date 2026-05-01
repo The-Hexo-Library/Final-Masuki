@@ -48,13 +48,13 @@ import {
   deleteAdminPublicLibrary,
   deleteAdminBook,
   getAdminOrdersPaged,
+  getAdminCategories,
   getAdminPublicLibrary,
   fetchMergedPublicCatalog,
   getMySubscriptionStatus,
   getAdminBooksPaged,
   getCart,
   getStoredUser,
-  getUserCategories,
   getUserLibraryPage,
   getSubscriptionPlansPublic,
   getPublicCategories,
@@ -3138,7 +3138,7 @@ const LoginPage = ({
                 ) : null}
               </div>
               <div className="relative">
-                <input value={password} onChange={(e) => setPassword(e.target.value)} type={showPassword ? 'text' : 'password'} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" minLength={8} required />
+                <input value={password} onChange={(e) => setPassword(e.target.value)} type={showPassword ? 'text' : 'password'} placeholder="Enter your password" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" minLength={8} required />
                 <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -3148,7 +3148,7 @@ const LoginPage = ({
               <div className="space-y-2">
                 <label className="text-xs font-bold text-on-surface-variant">Confirm Password</label>
                 <div className="relative">
-                  <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type={showConfirmPassword ? 'text' : 'password'} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" minLength={8} required />
+                  <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type={showConfirmPassword ? 'text' : 'password'} placeholder="Confirm your password" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-sm outline-none focus:ring-1 focus:ring-primary" minLength={8} required />
                   <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -4227,9 +4227,9 @@ const AdminEditBookPage = ({
       [user?.userId, initializing]
     );
 
-    const categoriesState = useFetch(
-      () => (initializing || !user ? Promise.resolve([] as CategoryRow[]) : getUserCategories().catch(() => [] as CategoryRow[])),
-      [user?.userId, initializing]
+    const adminCategoriesState = useFetch(
+      () => (initializing || (user?.role ?? '').toUpperCase() !== 'ADMIN' ? Promise.resolve([] as CategoryRow[]) : getAdminCategories().catch(() => [] as CategoryRow[])),
+      [user?.userId, user?.role, initializing]
     );
 
     const adminFetch = useFetch(
@@ -4833,6 +4833,7 @@ const AdminEditBookPage = ({
         }
         adminFetch.refetch();
         catalogState.refetch();
+        adminCategoriesState.refetch();
         if (hasFile && hasUrl) {
           setAdminActionError(
             usedRetrySku
@@ -4868,7 +4869,7 @@ const AdminEditBookPage = ({
             return;
           }
           await createAdminCategory({ name, slug });
-          categoriesState.refetch();
+          adminCategoriesState.refetch();
           setAdminActionError('Category created successfully.');
         } catch (e) {
           setAdminActionError(e instanceof Error ? e.message : 'Failed to create category.');
@@ -4947,6 +4948,7 @@ const AdminEditBookPage = ({
             await uploadAdminBookFile(bookId, file);
             adminFetch.refetch();
             catalogState.refetch();
+            adminCategoriesState.refetch();
             setAdminActionError('Book file uploaded.');
           } catch (e) {
             setAdminActionError(e instanceof Error ? e.message : 'Failed to upload book file.');
@@ -4980,6 +4982,7 @@ const AdminEditBookPage = ({
         await updateAdminBook(adminEditingBookId, payload);
         adminFetch.refetch();
         catalogState.refetch();
+        adminCategoriesState.refetch();
         setAdminActionError('Book updated successfully.');
         setPage('admin');
         setAdminEditingBookId(null);
@@ -5024,6 +5027,7 @@ const AdminEditBookPage = ({
       void (async () => {
         try {
           for (const bookId of ids) {
+        adminCategoriesState.refetch();
             await deleteAdminBook(bookId);
           }
           adminFetch.refetch();
@@ -5037,6 +5041,7 @@ const AdminEditBookPage = ({
             return next;
           });
           adminFetch.refetch();
+          adminCategoriesState.refetch();
           setAdminActionError(e instanceof Error ? e.message : `Failed to delete ${ids.length} book(s).`);
         }
       })();
@@ -5208,18 +5213,18 @@ const AdminEditBookPage = ({
               )}
               {page === 'admin-add-book' && (
                 <AdminAddBookPage
-                  categories={categoriesState.data ?? []}
+                  categories={adminCategoriesState.data ?? []}
                   busy={adminBookSaving}
                   error={adminActionError}
                   onCancel={() => navigateToPage('admin')}
-                  onRefreshCategories={async () => { categoriesState.refetch(); }}
+                  onRefreshCategories={async () => { adminCategoriesState.refetch(); }}
                   onSubmit={handleAdminSubmitBookForm}
                 />
               )}
               {page === 'admin-edit-book' && adminEditingBookId && adminFetch.data?.content?.find(b => b.productId === adminEditingBookId) && (
                 <AdminEditBookPage
                   book={adminFetch.data.content.find(b => b.productId === adminEditingBookId)!}
-                  categories={categoriesState.data ?? []}
+                  categories={adminCategoriesState.data ?? []}
                   busy={adminBookEditSaving}
                   error={adminActionError}
                   onCancel={() => navigateToPage('admin')}

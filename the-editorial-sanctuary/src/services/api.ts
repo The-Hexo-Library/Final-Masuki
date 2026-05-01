@@ -929,13 +929,33 @@ export async function getAdminBooksPaged(
 }
 
 export async function getUserCategories(): Promise<CategoryRow[]> {
-  const cacheKey = "GET:/user/categories";
+  const role = getStoredUser()?.role?.toUpperCase();
+  const isAdmin = role === "ADMIN";
+  const endpoint = isAdmin ? "/admin/categories/with-books" : "/user/categories";
+  const cacheKey = isAdmin ? "GET:/admin/categories/with-books" : "GET:/user/categories";
   const hit = ttlGet<CategoryRow[]>(cacheKey);
   if (hit) return hit;
 
   try {
     return dedupeRequest(cacheKey, async () => {
-      const { data } = await api.get<ApiResponse<CategoryRow[]>>("/user/categories");
+      const { data } = await api.get<ApiResponse<CategoryRow[]>>(endpoint);
+      const out = unwrapApiResponse<CategoryRow[]>(data) ?? [];
+      ttlSet(cacheKey, out, READ_CACHE_TTL_MS);
+      return out;
+    });
+  } catch (e) {
+    throw e instanceof ApiError ? e : new Error(extractErrorMessage(e));
+  }
+}
+
+export async function getAdminCategories(): Promise<CategoryRow[]> {
+  const cacheKey = "GET:/admin/categories/with-books";
+  const hit = ttlGet<CategoryRow[]>(cacheKey);
+  if (hit) return hit;
+
+  try {
+    return dedupeRequest(cacheKey, async () => {
+      const { data } = await api.get<ApiResponse<CategoryRow[]>>("/admin/categories/with-books");
       const out = unwrapApiResponse<CategoryRow[]>(data) ?? [];
       ttlSet(cacheKey, out, READ_CACHE_TTL_MS);
       return out;
