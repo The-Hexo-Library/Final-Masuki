@@ -173,8 +173,8 @@ function triggerLocalFileDownload(file: File): void {
 function compactPaginationSlots(
   totalPages: number,
   current1Based: number
-): (number | 'â€¦')[] {
-  const ell = 'â€¦' as const;
+): (number | '…')[] {
+  const ell = '…' as const;
   const tp = Math.max(1, totalPages);
   const c = Math.min(Math.max(1, current1Based), tp);
   if (tp <= 5) return Array.from({ length: tp }, (_, i) => i + 1);
@@ -417,7 +417,7 @@ const Navbar = ({
                           <h3 className="text-sm font-bold text-primary uppercase tracking-widest">Notifications</h3>
                         </div>
                         {notifLoading ? (
-                          <div className="p-6 text-center text-sm text-on-surface-variant">Loadingâ€¦</div>
+                          <div className="p-6 text-center text-sm text-on-surface-variant">Loading…</div>
                         ) : notifications.length === 0 ? (
                           <div className="p-6 text-center text-sm text-on-surface-variant">No notifications yet</div>
                         ) : (
@@ -1111,7 +1111,7 @@ const Footer = ({
       </div>
     </div>
     <div className="max-w-screen-2xl mx-auto px-8 py-8 border-t border-outline-variant/15 flex flex-col md:flex-row justify-between items-center gap-4">
-      <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Â© 2026 The Masuki Books. All rights reserved.</span>
+      <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">© 2026 The Masuki Books. All rights reserved.</span>
 
     </div>
     <div className="max-w-screen-2xl mx-auto px-8 pb-8">
@@ -1823,7 +1823,7 @@ const LandingPage = ({
                 The Definitive Framework for Corporate Excellence at Every Level.
               </h1>
               <p className="text-lg text-on-surface-variant max-w-[50ch] leading-relaxed">
-                Success in a complex organization isn't just about what you knowâ€”it's about how you behave. Developed by a collective of Harvard University Alumni, this series translates elite behavioral science into a practical, tiered roadmap for the modern workforce.
+                Success in a complex organization isn't just about what you know—it’s about how you behave. Developed by a collective of Harvard University Alumni, this series translates elite behavioral science into a practical, tiered roadmap for the modern workforce.
               </p>
             </div>
             <div className="flex flex-wrap gap-4">
@@ -1880,7 +1880,7 @@ const LandingPage = ({
               />
               <div className="absolute -bottom-6 -right-6 glass-card p-6 rounded-xl book-shadow max-w-[200px]">
                 <p className="font-headline text-xl text-primary mb-1 italic">"Essential reading for the modern soul."</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">â€” The New Yorker</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">— The New Yorker</p>
               </div>
             </div>
           </div>
@@ -1897,7 +1897,7 @@ const LandingPage = ({
               <span className="font-bold">Success isn't an accident. It's a framework.</span><br /><br />
               In the modern corporate landscape, talent is common, but behavioral mastery is rare. Most professionals spend their careers guessing at the "unspoken rules" of the boardroom, while organizations struggle to bridge the gap between potential and performance.<br /><br />
               <span className="font-bold text-primary text-center block">It's time to stop guessing.</span><br />
-              Forged by a collective of Harvard University Alumni, this library has more than a collection of booksâ€”it is a masterclass in professional evolution. We have distilled decades of Ivy League research and real-world executive experience into a definitive behavioral roadmap designed to turn every contributor into a powerhouse and every manager into a visionary.
+              Forged by a collective of Harvard University Alumni, this library has more than a collection of books—it is a masterclass in professional evolution. We have distilled decades of Ivy League research and real-world executive experience into a definitive behavioral roadmap designed to turn every contributor into a powerhouse and every manager into a visionary.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1971,7 +1971,7 @@ const LandingPage = ({
             <div className="space-y-6 lg:mr-auto max-w-sm">
               <Highlighter className="w-10 h-10 text-primary" />
               <h4 className="font-headline text-2xl text-primary">For the Cultural Steward<br /><span className="text-lg opacity-80">(Leadership)</span></h4>
-              <p className="text-on-surface-variant leading-relaxed">Don't just run a companyâ€”define an era. Master the high-level EQ and strategic vision required to inspire thousands and leave a lasting legacy.</p>
+              <p className="text-on-surface-variant leading-relaxed">Don't just run a company—define an era. Master the high-level EQ and strategic vision required to inspire thousands and leave a lasting legacy.</p>
             </div>
           </div>
         </div>
@@ -1982,7 +1982,7 @@ const LandingPage = ({
         <div className="max-w-[800px] mx-auto space-y-8">
           <h2 className="font-headline text-5xl text-primary">The Edge You’ve Been Searching For</h2>
           <p className="text-lg text-on-surface-variant leading-relaxed">
-            Why settle for generic "leadership advice" when you can implement a validated framework used by the worldâ€™s most elite organizations? This is the difference between working hard and working right.
+            Why settle for generic "leadership advice" when you can implement a validated framework used by the world’s most elite organizations? This is the difference between working hard and working right.
           </p>
           <blockquote className="font-serif text-2xl text-primary italic border-l-4 border-primary pl-6 py-2 text-left my-10 max-w-[600px] mx-auto bg-surface-container-low p-6 rounded-r-xl">
             "This series doesn't just teach you how to work; it teaches you how to win. It is the definitive guide for anyone who refuses to settle for mediocrity."
@@ -2114,7 +2114,7 @@ const PersonalLibrary = ({
           <div className="space-y-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">Resuming Chapter 4</p>
             <h2 className="font-headline text-4xl text-primary">{readingBook?.title || 'Your reading'}</h2>
-            <p className="text-sm text-on-surface-variant">By {readingBook?.author || 'â€”'}{readingBook?.progress != null ? ` â€¢ ${readingBook.progress}% Completed` : ''}</p>
+            <p className="text-sm text-on-surface-variant">By {readingBook?.author || '—'}{readingBook?.progress != null ? ` • ${readingBook.progress}% Completed` : ''}</p>
           </div>
           <p className="font-headline text-xl text-primary italic leading-relaxed max-w-[50ch]">
             {readingBook?.description?.trim() ? `"${readingBook.description}"` : '"Select a title from your library to continue reading."'}
@@ -2335,7 +2335,7 @@ const PublicLibrary = ({
               <button
                 key={i}
                 type="button"
-                disabled={slot === 'â€¦'}
+                disabled={slot === '…'}
                 onClick={() => typeof slot === 'number' && pagination.onSelectPage(slot)}
                 className={`w-10 h-10 rounded-full text-sm font-bold transition-all ${slot === pagination.currentPage1Based ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-primary'}`}
               >
@@ -2405,7 +2405,7 @@ const CartPage = ({
                       <h3 className="font-headline text-2xl text-primary italic">{book.title}</h3>
                       <button type="button" className="text-on-surface-variant hover:text-primary transition-colors" onClick={() => onRemoveLine(book.cartItemId ?? book.id)}><X className="w-5 h-5" /></button>
                     </div>
-                    <p className="text-sm text-on-surface-variant">By {book.author} â€¢ {book.category}</p>
+                    <p className="text-sm text-on-surface-variant">By {book.author} • {book.category}</p>
                   </div>
                   <div className="flex justify-between items-end">
                     <button type="button" onClick={() => onMoveToWishlist(book)} className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline">Move to Wishlist</button>
@@ -2683,7 +2683,7 @@ const SubscriptionPage = ({
         <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
         <div className="absolute bottom-6 left-6 right-6 md:bottom-8 md:left-8 md:right-auto md:max-w-[320px] rounded-2xl border border-white/15 bg-white/75 p-6 backdrop-blur-xl">
           <p className="font-headline text-xl italic text-primary leading-snug">"A library is not a luxury but one of the necessities of life."</p>
-          <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">â€” Henry Ward Beecher</p>
+          <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">— Henry Ward Beecher</p>
         </div>
       </div>
 
@@ -2916,7 +2916,7 @@ const CheckoutPage = ({
               <History className="w-5 h-5 text-on-surface-variant/50" />
               <Highlighter className="w-5 h-5 text-on-surface-variant/50" />
             </div>
-            <p className="text-[10px] text-center text-on-surface-variant uppercase tracking-widest">ENCRYPTED SSL TRANSACTION â€¢ DIGITAL DELIVERY</p>
+            <p className="text-[10px] text-center text-on-surface-variant uppercase tracking-widest">ENCRYPTED SSL TRANSACTION • DIGITAL DELIVERY</p>
           </div>
         </aside>
       </div>
@@ -2977,7 +2977,7 @@ const LoginPage = ({
             <p className="font-headline text-4xl text-on-primary italic leading-tight max-w-[15ch]">
               "A library is not a luxury but one of the necessities of life."
             </p>
-            <p className="text-xs font-bold uppercase tracking-widest text-on-primary/50">â€” HENRY WARD BEECHER</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-on-primary/50">— HENRY WARD BEECHER</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex -space-x-3">
@@ -3398,7 +3398,7 @@ const AdminVaultPage = ({
             <button
               key={i}
               type="button"
-              disabled={slot === 'â€¦'}
+              disabled={slot === '…'}
               onClick={() => typeof slot === 'number' && pagination.onSelectPage(slot)}
               className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${slot === pagination.currentPage1Based ? 'bg-primary text-on-primary' : 'hover:bg-surface-container-high'}`}
             >
