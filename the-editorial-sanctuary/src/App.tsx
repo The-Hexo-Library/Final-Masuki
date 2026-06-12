@@ -4205,11 +4205,57 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, categoryFilter]);
 
-  const publicBooks = useMemo(() => {
-    const start = publicPag.page * PUBLIC_PAGE_SIZE;
-    return filteredCatalogBooks
-      .slice(start, start + PUBLIC_PAGE_SIZE);
-  }, [filteredCatalogBooks, publicPag.page]);
+    const publicBooks = useMemo(() => {
+      const start = publicPag.page * PUBLIC_PAGE_SIZE;
+      return filteredCatalogBooks
+        .slice(start, start + PUBLIC_PAGE_SIZE);
+    }, [filteredCatalogBooks, publicPag.page]);
+
+    const categoriesWithCounts = useMemo(() => {
+      const counts = new Map<string, number>();
+      for (const book of catalogBooks) {
+        const catName = String(book.category ?? '').trim();
+        if (catName) {
+          const normalized = catName.toLowerCase();
+          counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+        }
+      }
+
+      const mergedList: CategoryRow[] = [];
+      const seenNames = new Set<string>();
+
+      for (const cat of publicCategories) {
+        const normalized = String(cat.name ?? '').trim().toLowerCase();
+        seenNames.add(normalized);
+        const dynamicCount = counts.get(normalized) ?? 0;
+        mergedList.push({
+          ...cat,
+          bookCount: dynamicCount
+        });
+      }
+
+      for (const book of catalogBooks) {
+        const catName = String(book.category ?? '').trim();
+        if (!catName) continue;
+        const normalized = catName.toLowerCase();
+        if (!seenNames.has(normalized)) {
+          seenNames.add(normalized);
+          mergedList.push({
+            categoryId: `dynamic-${normalized}`,
+            name: catName,
+            bookCount: counts.get(normalized) ?? 0,
+            isActive: true,
+          });
+        }
+      }
+
+      return mergedList.sort((a, b) => {
+        if (a.displayOrder !== undefined && b.displayOrder !== undefined) {
+          return a.displayOrder - b.displayOrder;
+        }
+        return a.name.localeCompare(b.name);
+      });
+    }, [catalogBooks, publicCategories]);
 
   const publicCatalogByProductId = useMemo(() => {
     const byId = new Map<string, Book>();
