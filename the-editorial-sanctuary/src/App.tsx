@@ -360,8 +360,8 @@ const Navbar = ({
                   key={item.id}
                   onClick={() => setPage(item.id as Page)}
                   className={`text-sm font-medium transition-all duration-200 pb-1 border-b-2 ${currentPage === item.id
-                      ? 'text-primary border-primary font-bold'
-                      : 'text-on-surface-variant border-transparent hover:text-primary'
+                    ? 'text-primary border-primary font-bold'
+                    : 'text-on-surface-variant border-transparent hover:text-primary'
                     }`}
                 >
                   {item.label}
@@ -2101,38 +2101,61 @@ const PersonalLibrary = ({
     ) : null}
 
     {activeTab === 'reading' && (
-      <div className="relative bg-surface-container-low rounded-2xl overflow-hidden p-8 md:p-12 flex flex-col md:flex-row gap-12 items-center">
-        <div className="w-64 aspect-square rounded-lg overflow-hidden book-shadow flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0a2e3d, #14697a)' }}>
-          <img
-            src={readingBook?.image || ''}
-            className="w-full h-full object-cover opacity-80"
-            referrerPolicy="no-referrer"
-            alt={readingBook?.title || 'Current Book'}
-          />
-        </div>
-        <div className="space-y-6 flex-grow">
+      !readingBook ? (
+        <div className="bg-surface-container-low rounded-2xl p-8 md:p-12 text-center space-y-6 max-w-2xl mx-auto border border-outline-variant/10">
+          <div className="w-16 h-16 mx-auto bg-surface-container-highest rounded-full flex items-center justify-center text-primary">
+            <BookOpen className="w-8 h-8" />
+          </div>
           <div className="space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">Resuming Chapter 4</p>
-            <h2 className="font-headline text-4xl text-primary">{readingBook?.title || 'Your reading'}</h2>
-            <p className="text-sm text-on-surface-variant">By {readingBook?.author || '—'}{readingBook?.progress != null ? ` • ${readingBook.progress}% Completed` : ''}</p>
+            <h2 className="font-headline text-3xl text-primary italic">Empty Library</h2>
+            <p className="text-on-surface-variant max-w-md mx-auto">
+              No books in personal library,buy a book to start reading
+            </p>
           </div>
-          <p className="font-headline text-xl text-primary italic leading-relaxed max-w-[50ch]">
-            {readingBook?.description?.trim() ? `"${readingBook.description}"` : '"Select a title from your library to continue reading."'}
-          </p>
-          <div className="h-1 w-full bg-secondary-container rounded-full overflow-hidden">
-            <div className="h-full bg-primary" style={{ width: `${readingBook?.progress ?? 0}%` }} />
-          </div>
-          <div className="flex gap-4">
-            <button type="button" onClick={() => onOpenReader(readingBook)} className="primary-gradient text-on-primary px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-              <BookOpen className="w-4 h-4" /> {readingBook && isFlipbookBook(readingBook) ? 'Open Flipbook' : 'Read Now'}
-            </button>
-            <button type="button" onClick={onOpenCatalog} className="px-8 py-3 border border-outline-variant/30 rounded-lg font-bold uppercase tracking-widest text-xs text-primary hover:bg-surface-container-high transition-colors">
-              Details
+          <div>
+            <button
+              type="button"
+              onClick={onOpenCatalog}
+              className="primary-gradient text-on-primary px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs inline-flex items-center gap-2"
+            >
+              Browse Catalog
             </button>
           </div>
         </div>
-        <div className="absolute top-0 right-0 w-1/3 h-full bg-surface-container-highest/30 -skew-x-12 translate-x-1/2 pointer-events-none" />
-      </div>
+      ) : (
+        <div className="relative bg-surface-container-low rounded-2xl overflow-hidden p-8 md:p-12 flex flex-col md:flex-row gap-12 items-center">
+          <div className="w-64 aspect-square rounded-lg overflow-hidden book-shadow flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0a2e3d, #14697a)' }}>
+            <img
+              src={readingBook?.image || ''}
+              className="w-full h-full object-cover opacity-80"
+              referrerPolicy="no-referrer"
+              alt={readingBook?.title || 'Current Book'}
+            />
+          </div>
+          <div className="space-y-6 flex-grow">
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">Resuming Chapter 4</p>
+              <h2 className="font-headline text-4xl text-primary">{readingBook?.title || 'Your reading'}</h2>
+              <p className="text-sm text-on-surface-variant">By {readingBook?.author || '—'}{readingBook?.progress != null ? ` • ${readingBook.progress}% Completed` : ''}</p>
+            </div>
+            <p className="font-headline text-xl text-primary italic leading-relaxed max-w-[50ch]">
+              {readingBook?.description?.trim() ? `"${readingBook.description}"` : '"Select a title from your library to continue reading."'}
+            </p>
+            <div className="h-1 w-full bg-secondary-container rounded-full overflow-hidden">
+              <div className="h-full bg-primary" style={{ width: `${readingBook?.progress ?? 0}%` }} />
+            </div>
+            <div className="flex gap-4">
+              <button type="button" onClick={() => onOpenReader(readingBook)} className="primary-gradient text-on-primary px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex items-center gap-2">
+                <BookOpen className="w-4 h-4" /> {readingBook && isFlipbookBook(readingBook) ? 'Open Flipbook' : 'Read Now'}
+              </button>
+              <button type="button" onClick={onOpenCatalog} className="px-8 py-3 border border-outline-variant/30 rounded-lg font-bold uppercase tracking-widest text-xs text-primary hover:bg-surface-container-high transition-colors">
+                Details
+              </button>
+            </div>
+          </div>
+          <div className="absolute top-0 right-0 w-1/3 h-full bg-surface-container-highest/30 -skew-x-12 translate-x-1/2 pointer-events-none" />
+        </div>
+      )
     )}
 
     {activeTab === 'collections' && (
@@ -2193,24 +2216,7 @@ const PublicLibrary = ({
   categories?: CategoryRow[];
   onCategoryClick?: (name: string) => void;
 }) => {
-  const filteredBooks = useMemo(() => {
-    let result = books;
-    if (searchQuery && searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter(
-        (b) =>
-          b.title.toLowerCase().includes(q) ||
-          b.author.toLowerCase().includes(q) ||
-          (b.category && b.category.toLowerCase().includes(q))
-      );
-    }
-    if (categoryFilter) {
-      result = result.filter(
-        (b) => b.category && b.category.toLowerCase() === categoryFilter.toLowerCase()
-      );
-    }
-    return result;
-  }, [books, searchQuery, categoryFilter]);
+  const filteredBooks = books;
 
   return (
     <div className="max-w-screen-2xl mx-auto px-8 py-12 space-y-12">
@@ -2274,7 +2280,7 @@ const PublicLibrary = ({
             <p className="text-sm text-on-surface-variant" role="status">{actionMessage}</p>
           ) : null}
           <div className="bg-surface-container-low rounded-xl p-4 flex justify-between items-center">
-            <span className="text-xs text-on-surface-variant">Showing <span className="font-bold text-primary">{filteredBooks.length}</span> masterpieces</span>
+            <span className="text-xs text-on-surface-variant">Showing <span className="font-bold text-primary">{totalCount}</span> masterpieces</span>
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-on-surface-variant">SORT:</span>
@@ -2327,25 +2333,27 @@ const PublicLibrary = ({
           </div>
 
           {/* Pagination */}
-          <div className="flex justify-center items-center gap-4 pt-12">
-            <button type="button" onClick={pagination.onPrev} className="p-3 rounded-full border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:border-primary transition-all">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            {compactPaginationSlots(pagination.totalPages, pagination.currentPage1Based).map((slot, i) => (
-              <button
-                key={i}
-                type="button"
-                disabled={slot === '…'}
-                onClick={() => typeof slot === 'number' && pagination.onSelectPage(slot)}
-                className={`w-10 h-10 rounded-full text-sm font-bold transition-all ${slot === pagination.currentPage1Based ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-primary'}`}
-              >
-                {slot}
+          {pagination.totalPages > 1 && (
+            <div className="flex justify-center items-center gap-4 pt-12">
+              <button type="button" onClick={pagination.onPrev} className="p-3 rounded-full border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:border-primary transition-all">
+                <ChevronLeft className="w-4 h-4" />
               </button>
-            ))}
-            <button type="button" onClick={pagination.onNext} className="p-3 rounded-full border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:border-primary transition-all">
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+              {compactPaginationSlots(pagination.totalPages, pagination.currentPage1Based).map((slot, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={slot === '…'}
+                  onClick={() => typeof slot === 'number' && pagination.onSelectPage(slot)}
+                  className={`w-10 h-10 rounded-full text-sm font-bold transition-all ${slot === pagination.currentPage1Based ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-primary'}`}
+                >
+                  {slot}
+                </button>
+              ))}
+              <button type="button" onClick={pagination.onNext} className="p-3 rounded-full border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:border-primary transition-all">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2629,8 +2637,8 @@ const SubscriptionPage = ({
         <div
           key={plan.id}
           className={`relative flex h-full flex-col rounded-[2rem] border p-8 md:p-10 shadow-sm transition-transform duration-200 ${plan.recommended
-              ? 'border-primary bg-white shadow-2xl md:-translate-y-2'
-              : 'border-outline-variant/25 bg-surface-container-low'
+            ? 'border-primary bg-white shadow-2xl md:-translate-y-2'
+            : 'border-outline-variant/25 bg-surface-container-low'
             }`}
         >
           {plan.recommended ? (
@@ -2666,8 +2674,8 @@ const SubscriptionPage = ({
           <button
             type="button"
             className={`mt-8 w-full rounded-2xl px-5 py-4 text-xs font-bold uppercase tracking-[0.24em] transition-all ${plan.recommended
-                ? 'primary-gradient text-on-primary shadow-lg hover:opacity-95'
-                : 'bg-surface-container-high text-primary hover:bg-surface-container-highest'
+              ? 'primary-gradient text-on-primary shadow-lg hover:opacity-95'
+              : 'bg-surface-container-high text-primary hover:bg-surface-container-highest'
               }`}
             onClick={() => onSubscribe(plan.id)}
           >
@@ -3874,1401 +3882,1423 @@ const AdminAddBookPage = ({
 };
 
 const AdminEditBookPage = ({
-      book,
-      categories,
-      busy,
-      error,
-      onCancel,
-      onSubmit,
-    }: {
-      book: ProductRow;
-      categories: CategoryRow[];
-      busy: boolean;
-      error?: string;
-      onCancel: () => void;
-      onSubmit: (payload: {
-        categoryId: string;
-        title: string;
-        author: string;
-        sku: string;
-        format: string;
-        price: number;
-        contentType?: string;
-        status?: string;
-        description?: string;
-      }) => Promise<void>;
-    }) => {
-    const [categoryId, setCategoryId] = useState(book.categoryId || '');
-    const [title, setTitle] = useState(book.title || '');
-    const [author, setAuthor] = useState(book.author || '');
-    const [sku, setSku] = useState(book.sku || '');
-    const [format, setFormat] = useState(book.format || 'ebook');
-    const [price, setPrice] = useState((book.price || 0).toString());
-    const [contentType, setContentType] = useState(book.contentType || 'digital');
-    const [status, setStatus] = useState(book.status || 'published');
-    const [description, setDescription] = useState(book.description || '');
-    const [formError, setFormError] = useState('');
+  book,
+  categories,
+  busy,
+  error,
+  onCancel,
+  onSubmit,
+}: {
+  book: ProductRow;
+  categories: CategoryRow[];
+  busy: boolean;
+  error?: string;
+  onCancel: () => void;
+  onSubmit: (payload: {
+    categoryId: string;
+    title: string;
+    author: string;
+    sku: string;
+    format: string;
+    price: number;
+    contentType?: string;
+    status?: string;
+    description?: string;
+  }) => Promise<void>;
+}) => {
+  const [categoryId, setCategoryId] = useState(book.categoryId || '');
+  const [title, setTitle] = useState(book.title || '');
+  const [author, setAuthor] = useState(book.author || '');
+  const [sku, setSku] = useState(book.sku || '');
+  const [format, setFormat] = useState(book.format || 'ebook');
+  const [price, setPrice] = useState((book.price || 0).toString());
+  const [contentType, setContentType] = useState(book.contentType || 'digital');
+  const [status, setStatus] = useState(book.status || 'published');
+  const [description, setDescription] = useState(book.description || '');
+  const [formError, setFormError] = useState('');
 
-    useEffect(() => {
-      if (!categoryId && categories.length > 0) {
-        setCategoryId(categories[0].categoryId);
-      }
-    }, [categories, categoryId]);
+  useEffect(() => {
+    if (!categoryId && categories.length > 0) {
+      setCategoryId(categories[0].categoryId);
+    }
+  }, [categories, categoryId]);
 
-    return (
-      <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="font-headline text-5xl text-primary italic">Edit Manuscript</h1>
-            <p className="text-on-surface-variant mt-2">
-              Update book metadata fields below. To change the book file, use the upload option from the dashboard.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-5 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold hover:bg-surface-container-low transition-colors"
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="font-headline text-5xl text-primary italic">Edit Manuscript</h1>
+          <p className="text-on-surface-variant mt-2">
+            Update book metadata fields below. To change the book file, use the upload option from the dashboard.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-5 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold hover:bg-surface-container-low transition-colors"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+
+      {error ? <p className="text-sm text-on-surface-variant" role="alert">{error}</p> : null}
+      {formError ? <p className="text-sm text-on-surface-variant" role="alert">{formError}</p> : null}
+
+      <form
+        className="bg-white rounded-2xl border border-outline-variant/20 p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setFormError('');
+          void (async () => {
+            const parsedPrice = Number(price);
+            if (!categoryId) {
+              setFormError('Category is required.');
+              return;
+            }
+            if (!title.trim() || !author.trim() || !sku.trim()) {
+              setFormError('Title, author, and SKU are required.');
+              return;
+            }
+            if (Number.isNaN(parsedPrice) || parsedPrice <= 0) {
+              setFormError('Price must be a valid positive number.');
+              return;
+            }
+
+            await onSubmit({
+              categoryId,
+              title: title.trim(),
+              author: author.trim(),
+              sku: sku.trim(),
+              format: format.trim(),
+              price: parsedPrice,
+              contentType: contentType.trim(),
+              status: status.trim(),
+              description: description.trim() || undefined,
+            });
+          })();
+        }}
+      >
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Category</span>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none"
+            required
           >
-            Back to Dashboard
+            <option value="" disabled>Select category</option>
+            {categories.map((c) => (
+              <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Title</span>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Author</span>
+          <input value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">SKU</span>
+          <input value={sku} onChange={(e) => setSku(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Format</span>
+          <input value={format} onChange={(e) => setFormat(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Price</span>
+          <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" min="0.01" step="0.01" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Content Type</span>
+          <input value={contentType} onChange={(e) => setContentType(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Status</span>
+          <input value={status} onChange={(e) => setStatus(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" />
+        </label>
+
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Description</span>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none resize-y" />
+        </label>
+
+        <div className="md:col-span-2 flex items-center justify-end gap-3 pt-2">
+          <button type="button" onClick={onCancel} className="px-5 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold hover:bg-surface-container-low transition-colors">Cancel</button>
+          <button type="submit" disabled={busy} className="primary-gradient text-on-primary px-6 py-3 rounded-xl font-bold text-sm shadow-xl disabled:opacity-70">
+            {busy ? 'Saving...' : 'Update Book'}
           </button>
         </div>
+      </form>
+    </div>
+  );
+};
 
-        {error ? <p className="text-sm text-on-surface-variant" role="alert">{error}</p> : null}
-        {formError ? <p className="text-sm text-on-surface-variant" role="alert">{formError}</p> : null}
+// --- Main App ---
 
-        <form
-          className="bg-white rounded-2xl border border-outline-variant/20 p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setFormError('');
-            void (async () => {
-              const parsedPrice = Number(price);
-              if (!categoryId) {
-                setFormError('Category is required.');
-                return;
-              }
-              if (!title.trim() || !author.trim() || !sku.trim()) {
-                setFormError('Title, author, and SKU are required.');
-                return;
-              }
-              if (Number.isNaN(parsedPrice) || parsedPrice <= 0) {
-                setFormError('Price must be a valid positive number.');
-                return;
-              }
+export default function App() {
+  const [page, setPage] = useState<Page>(getInitialPage);
+  const [activeReadingBookId, setActiveReadingBookId] = useState<string | null>(null);
+  const [subscriptionActionError, setSubscriptionActionError] = useState('');
+  const [publicActionMsg, setPublicActionMsg] = useState('');
+  const [libraryActionMsg, setLibraryActionMsg] = useState('');
+  const [adminActionError, setAdminActionError] = useState('');
+  const [optimisticallyDeletedBookIds, setOptimisticallyDeletedBookIds] = useState<Set<string>>(new Set());
+  const [optimisticallyDeletedCartItemIds, setOptimisticallyDeletedCartItemIds] = useState<Set<string>>(() => {
+    try {
+      const stored = sessionStorage.getItem(DELETED_CART_ITEMS_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[];
+        if (Array.isArray(parsed)) return new Set(parsed);
+      }
+    } catch { /* ignore */ }
+    return new Set();
+  });
+  const [adminBookSaving, setAdminBookSaving] = useState(false);
+  const [checkoutErr, setCheckoutErr] = useState('');
+  const [landingLibraryTab, setLandingLibraryTab] = useState<'reading' | 'collections'>('reading');
+  const [landingLibrarySort, setLandingLibrarySort] = useState('Recent Activity');
+  const [publicSortMode, setPublicSortMode] = useState<'latest' | 'title'>('latest');
+  const [publicViewMode, setPublicViewMode] = useState<'grid' | 'list'>('grid');
+  const [billingCycle, setBillingCycle] = useState<'annual' | 'monthly'>('annual');
+  const [savedForLater, setSavedForLater] = useState<Book[]>([]);
+  const [wishlistExpanded, setWishlistExpanded] = useState(false);
+  const [wishlistActionMsg, setWishlistActionMsg] = useState('');
+  const [latestInvoice, setLatestInvoice] = useState<{
+    invoiceNumber: string;
+    orderId: string;
+    amountLabel: string;
+    dateLabel: string;
+    paymentLabel: string;
+  } | null>(null);
+  const [cartUiBooks, setCartUiBooks] = useState<Book[]>([]);
+  const [adminEditingBookId, setAdminEditingBookId] = useState<string | null>(null);
+  const [adminBookEditSaving, setAdminBookEditSaving] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [publicCategories, setPublicCategories] = useState<CategoryRow[]>([]);
 
-              await onSubmit({
-                categoryId,
-                title: title.trim(),
-                author: author.trim(),
-                sku: sku.trim(),
-                format: format.trim(),
-                price: parsedPrice,
-                contentType: contentType.trim(),
-                status: status.trim(),
-                description: description.trim() || undefined,
-              });
-            })();
-          }}
-        >
-          <label className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Category</span>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none"
-              required
-            >
-              <option value="" disabled>Select category</option>
-              {categories.map((c) => (
-                <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Title</span>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Author</span>
-            <input value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">SKU</span>
-            <input value={sku} onChange={(e) => setSku(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Format</span>
-            <input value={format} onChange={(e) => setFormat(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Price</span>
-            <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" min="0.01" step="0.01" className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" required />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Content Type</span>
-            <input value={contentType} onChange={(e) => setContentType(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Status</span>
-            <input value={status} onChange={(e) => setStatus(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none" />
-          </label>
-
-          <label className="space-y-2 md:col-span-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Description</span>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none resize-y" />
-          </label>
-
-          <div className="md:col-span-2 flex items-center justify-end gap-3 pt-2">
-            <button type="button" onClick={onCancel} className="px-5 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold hover:bg-surface-container-low transition-colors">Cancel</button>
-            <button type="submit" disabled={busy} className="primary-gradient text-on-primary px-6 py-3 rounded-xl font-bold text-sm shadow-xl disabled:opacity-70">
-              {busy ? 'Saving...' : 'Update Book'}
-            </button>
-          </div>
-        </form>
-      </div>
-    );
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 3000);
   };
 
-  // --- Main App ---
+  const { user, signIn, signInAdmin, signUp, signOut, signInWithGoogle, googleAuthLoading, initializing, isAuthenticated } = useAuth();
+  const isAdminUser = (user?.role ?? '').toUpperCase() === 'ADMIN';
+  const publicPag = usePaginationState(0, PUBLIC_PAGE_SIZE);
+  const adminPag = usePaginationState(0, 50);
+  const ordersPag = usePaginationState(0, 20);
+  const protectedPages: Page[] = ['public-library', 'profile', 'personal-library', 'cart', 'wishlist', 'subscription', 'checkout', 'admin', 'admin-add-book', 'admin-edit-book', 'admin-contacts', 'reader'];
 
-  export default function App() {
-    const [page, setPage] = useState<Page>(getInitialPage);
-    const [activeReadingBookId, setActiveReadingBookId] = useState<string | null>(null);
-    const [subscriptionActionError, setSubscriptionActionError] = useState('');
-    const [publicActionMsg, setPublicActionMsg] = useState('');
-    const [libraryActionMsg, setLibraryActionMsg] = useState('');
-    const [adminActionError, setAdminActionError] = useState('');
-    const [optimisticallyDeletedBookIds, setOptimisticallyDeletedBookIds] = useState<Set<string>>(new Set());
-    const [optimisticallyDeletedCartItemIds, setOptimisticallyDeletedCartItemIds] = useState<Set<string>>(() => {
-      try {
-        const stored = sessionStorage.getItem(DELETED_CART_ITEMS_STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored) as string[];
-          if (Array.isArray(parsed)) return new Set(parsed);
-        }
-      } catch { /* ignore */ }
-      return new Set();
+  const navigateToPage = (target: Page) => {
+    if (!isAuthenticated && protectedPages.includes(target)) {
+      setPage('login');
+      return;
+    }
+    setPage(target);
+  };
+
+  useEffect(() => {
+    return subscribeAppErrors((evt) => {
+      console.warn("[errorBus]", {
+        topic: evt.topic,
+        message: evt.message,
+        endpoint: evt.endpoint,
+        method: evt.method,
+        requestId: evt.requestId,
+        payloadSummary: evt.payloadSummary,
+        toastCandidate: evt.toastReady,
+      });
     });
-    const [adminBookSaving, setAdminBookSaving] = useState(false);
-    const [checkoutErr, setCheckoutErr] = useState('');
-    const [landingLibraryTab, setLandingLibraryTab] = useState<'reading' | 'collections'>('reading');
-    const [landingLibrarySort, setLandingLibrarySort] = useState('Recent Activity');
-    const [publicSortMode, setPublicSortMode] = useState<'latest' | 'title'>('latest');
-    const [publicViewMode, setPublicViewMode] = useState<'grid' | 'list'>('grid');
-    const [billingCycle, setBillingCycle] = useState<'annual' | 'monthly'>('annual');
-    const [savedForLater, setSavedForLater] = useState<Book[]>([]);
-    const [wishlistExpanded, setWishlistExpanded] = useState(false);
-    const [wishlistActionMsg, setWishlistActionMsg] = useState('');
-    const [latestInvoice, setLatestInvoice] = useState<{
-      invoiceNumber: string;
-      orderId: string;
-      amountLabel: string;
-      dateLabel: string;
-      paymentLabel: string;
-    } | null>(null);
-    const [cartUiBooks, setCartUiBooks] = useState<Book[]>([]);
-    const [adminEditingBookId, setAdminEditingBookId] = useState<string | null>(null);
-    const [adminBookEditSaving, setAdminBookEditSaving] = useState(false);
-    const [toastMsg, setToastMsg] = useState('');
-    const [toastVisible, setToastVisible] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('');
-    const [publicCategories, setPublicCategories] = useState<CategoryRow[]>([]);
+  }, []);
 
-    const showToast = (msg: string) => {
-      setToastMsg(msg);
-      setToastVisible(true);
-      setTimeout(() => setToastVisible(false), 3000);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SAVED_WISHLIST_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Book[];
+      if (Array.isArray(parsed)) {
+        setSavedForLater(parsed);
+      }
+    } catch {
+      // ignore invalid local cache
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SAVED_WISHLIST_STORAGE_KEY, JSON.stringify(savedForLater));
+    } catch {
+      // ignore storage errors
+    }
+  }, [savedForLater]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(LAST_PAGE_STORAGE_KEY, page);
+    } catch {
+      // ignore storage errors
+    }
+  }, [page]);
+
+  useEffect(() => {
+    getPublicCategories()
+      .then(setPublicCategories)
+      .catch(() => { /* silently ignore */ });
+  }, []);
+
+  const catalogState = useFetch(() => fetchMergedPublicCatalog(), []);
+  const catalogRows = catalogState.data ?? [];
+
+  const newReleases = useMemo(
+    () => catalogRows.slice(0, 4).map(publicRowToUiBook),
+    [catalogRows]
+  );
+
+  const catalogBooks = useMemo(() => {
+    const mapped = catalogRows.map(publicRowToUiBook);
+    if (publicSortMode === 'title') {
+      return [...mapped].sort((left, right) => left.title.localeCompare(right.title));
+    }
+    return mapped;
+  }, [catalogRows, publicSortMode]);
+
+  const filteredCatalogBooks = useMemo(() => {
+    let result = catalogBooks;
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          b.author.toLowerCase().includes(q) ||
+          (b.category && b.category.toLowerCase().includes(q))
+      );
+    }
+    if (categoryFilter) {
+      result = result.filter(
+        (b) => b.category && b.category.toLowerCase() === categoryFilter.toLowerCase()
+      );
+    }
+    return result;
+  }, [catalogBooks, searchQuery, categoryFilter]);
+
+  useEffect(() => {
+    publicPag.syncClientPagination(filteredCatalogBooks.length, PUBLIC_PAGE_SIZE);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredCatalogBooks.length]);
+
+  useEffect(() => {
+    publicPag.setPage(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, categoryFilter]);
+
+  const publicBooks = useMemo(() => {
+    const start = publicPag.page * PUBLIC_PAGE_SIZE;
+    return filteredCatalogBooks
+      .slice(start, start + PUBLIC_PAGE_SIZE);
+  }, [filteredCatalogBooks, publicPag.page]);
+
+  const publicCatalogByProductId = useMemo(() => {
+    const byId = new Map<string, Book>();
+    for (const row of catalogRows) {
+      const mapped = publicRowToUiBook(row);
+      const key = String(mapped.id ?? '').trim().toLowerCase();
+      if (!key) continue;
+      if (!byId.has(key)) byId.set(key, mapped);
+    }
+    return byId;
+  }, [catalogRows]);
+
+  const publicCatalogBySignature = useMemo(() => {
+    const bySignature = new Map<string, Book>();
+    for (const row of catalogRows) {
+      const mapped = publicRowToUiBook(row);
+      const signature = getBookSignature(mapped);
+      if (!signature || signature === '::') continue;
+      if (!bySignature.has(signature)) bySignature.set(signature, mapped);
+    }
+    return bySignature;
+  }, [catalogRows]);
+
+  const libState = useFetch(
+    () => {
+      if (initializing) return Promise.resolve([] as LibraryRow[]);
+      if (!user) return Promise.resolve([]);
+      return getUserLibraryPage(0, 20);
+    },
+    [user?.userId, initializing]
+  );
+
+  const cartState = useFetch(
+    () =>
+      initializing || !user
+        ? Promise.resolve(null as CartRow | null)
+        : getCart().catch(() => null),
+    [user?.userId, initializing]
+  );
+
+  const plansState = useFetch(() => getSubscriptionPlansPublic(), []);
+
+  const subStatusState = useFetch(
+    () => (initializing || !user ? Promise.resolve(null as SubscriptionStatusRow | null) : getMySubscriptionStatus().catch(() => null)),
+    [user?.userId, initializing]
+  );
+
+  const adminCategoriesState = useFetch(
+    () => (initializing || (user?.role ?? '').toUpperCase() !== 'ADMIN' ? Promise.resolve([] as CategoryRow[]) : getAdminCategories().catch(() => [] as CategoryRow[])),
+    [user?.userId, user?.role, initializing]
+  );
+
+  const adminFetch = useFetch(
+    () => {
+      if (initializing) return Promise.resolve(null as PagedResult<ProductRow> | null);
+      if ((page !== 'admin' && page !== 'admin-edit-book') || (user?.role ?? '').toUpperCase() !== 'ADMIN') {
+        return Promise.resolve(null);
+      }
+      return getAdminBooksPaged(adminPag.page, adminPag.size).catch(() => null);
+    },
+    [page, user?.userId, user?.role, adminPag.page, adminPag.size, initializing]
+  );
+
+  const adminOrdersState = useFetch(
+    () => {
+      if (initializing) return Promise.resolve(null as PagedResult<AdminOrderRow> | null);
+      if ((page !== 'admin' && page !== 'personal-library') || (user?.role ?? '').toUpperCase() !== 'ADMIN') {
+        return Promise.resolve(null);
+      }
+      return getAdminOrdersPaged(ordersPag.page, ordersPag.size).catch(() => null);
+    },
+    [page, user?.userId, user?.role, ordersPag.page, ordersPag.size, initializing]
+  );
+
+  useEffect(() => {
+    const isAdminPage = page === 'admin' || page === 'personal-library';
+    if (!isAdminPage || (user?.role ?? '').toUpperCase() !== 'ADMIN') return;
+
+    const refreshAdminOrders = () => {
+      adminOrdersState.refetch();
     };
 
-    const { user, signIn, signInAdmin, signUp, signOut, signInWithGoogle, googleAuthLoading, initializing, isAuthenticated } = useAuth();
-    const isAdminUser = (user?.role ?? '').toUpperCase() === 'ADMIN';
-    const publicPag = usePaginationState(0, PUBLIC_PAGE_SIZE);
-    const adminPag = usePaginationState(0, 50);
-    const ordersPag = usePaginationState(0, 20);
-    const protectedPages: Page[] = ['public-library', 'profile', 'personal-library', 'cart', 'wishlist', 'subscription', 'checkout', 'admin', 'admin-add-book', 'admin-edit-book', 'admin-contacts', 'reader'];
+    refreshAdminOrders();
 
-    const navigateToPage = (target: Page) => {
-      if (!isAuthenticated && protectedPages.includes(target)) {
-        setPage('login');
-        return;
+    const timer = window.setInterval(refreshAdminOrders, ADMIN_STATS_REFRESH_MS);
+    const handleFocus = () => refreshAdminOrders();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAdminOrders();
       }
-      setPage(target);
     };
+    const handleOrderActivity = () => refreshAdminOrders();
 
-    useEffect(() => {
-      return subscribeAppErrors((evt) => {
-        console.warn("[errorBus]", {
-          topic: evt.topic,
-          message: evt.message,
-          endpoint: evt.endpoint,
-          method: evt.method,
-          requestId: evt.requestId,
-          payloadSummary: evt.payloadSummary,
-          toastCandidate: evt.toastReady,
-        });
-      });
-    }, []);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener(ORDER_ACTIVITY_EVENT, handleOrderActivity as EventListener);
 
-    useEffect(() => {
-      try {
-        const raw = localStorage.getItem(SAVED_WISHLIST_STORAGE_KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw) as Book[];
-        if (Array.isArray(parsed)) {
-          setSavedForLater(parsed);
-        }
-      } catch {
-        // ignore invalid local cache
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener(ORDER_ACTIVITY_EVENT, handleOrderActivity as EventListener);
+    };
+  }, [page, user?.role, adminOrdersState.refetch]);
+
+  const adminPublicLibraryState = useFetch(
+    () => {
+      if (initializing) return Promise.resolve([] as { publicLibraryId?: string }[]);
+      if (page !== 'admin' || (user?.role ?? '').toUpperCase() !== 'ADMIN') {
+        return Promise.resolve([] as { publicLibraryId?: string }[]);
       }
-    }, []);
+      return getAdminPublicLibrary().catch(() => [] as { publicLibraryId?: string }[]);
+    },
+    [page, user?.userId, user?.role, initializing]
+  );
 
-    useEffect(() => {
-      try {
-        localStorage.setItem(SAVED_WISHLIST_STORAGE_KEY, JSON.stringify(savedForLater));
-      } catch {
-        // ignore storage errors
+  useEffect(() => {
+    const d = adminFetch.data;
+    if (d) adminPag.applyResult(d);
+    // applyResult is stable; avoid depending on whole pagination object identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminFetch.data]);
+
+  const personalBooks = useMemo(() => {
+    return (libState.data ?? []).map((row) => {
+      const local = libraryRowToUiBook(row);
+      const catalogMatch =
+        publicCatalogByProductId.get(String(local.id ?? '').trim().toLowerCase()) ||
+        publicCatalogBySignature.get(getBookSignature(local));
+
+      if (!catalogMatch) {
+        return local;
       }
-    }, [savedForLater]);
 
-    useEffect(() => {
-      try {
-        sessionStorage.setItem(LAST_PAGE_STORAGE_KEY, page);
-      } catch {
-        // ignore storage errors
-      }
-    }, [page]);
+      const mergedUrl =
+        (local.fileUrl ?? '').trim() ||
+        (catalogMatch.downloadUrl ?? '').trim() ||
+        undefined;
 
-    useEffect(() => {
-      getPublicCategories()
-        .then(setPublicCategories)
-        .catch(() => { /* silently ignore */ });
-    }, []);
+      const mergedIsFlipbook =
+        Boolean(local.isFlipbook) ||
+        Boolean(catalogMatch.isFlipbook) ||
+        Boolean(mergedUrl && /(designrr\.page|designrr\.s3\.amazonaws\.com|type=fp|flipbook)/i.test(mergedUrl));
 
-    const catalogState = useFetch(() => fetchMergedPublicCatalog(), []);
-    const catalogRows = catalogState.data ?? [];
-
-    useEffect(() => {
-      publicPag.syncClientPagination(catalogRows.length, PUBLIC_PAGE_SIZE);
-      // syncClientPagination is stable; only re-sync when catalog size changes
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [catalogRows.length]);
-
-    const newReleases = useMemo(
-      () => catalogRows.slice(0, 4).map(publicRowToUiBook),
-      [catalogRows]
-    );
-
-    const catalogBooks = useMemo(() => {
-      const mapped = catalogRows.map(publicRowToUiBook);
-      if (publicSortMode === 'title') {
-        return [...mapped].sort((left, right) => left.title.localeCompare(right.title));
-      }
-      return mapped;
-    }, [catalogRows, publicSortMode]);
-
-    const publicBooks = useMemo(() => {
-      const start = publicPag.page * PUBLIC_PAGE_SIZE;
-      return catalogBooks
-        .slice(start, start + PUBLIC_PAGE_SIZE)
-        .map((book) => book);
-    }, [catalogBooks, publicPag.page]);
-
-    const publicCatalogByProductId = useMemo(() => {
-      const byId = new Map<string, Book>();
-      for (const row of catalogRows) {
-        const mapped = publicRowToUiBook(row);
-        const key = String(mapped.id ?? '').trim().toLowerCase();
-        if (!key) continue;
-        if (!byId.has(key)) byId.set(key, mapped);
-      }
-      return byId;
-    }, [catalogRows]);
-
-    const publicCatalogBySignature = useMemo(() => {
-      const bySignature = new Map<string, Book>();
-      for (const row of catalogRows) {
-        const mapped = publicRowToUiBook(row);
-        const signature = getBookSignature(mapped);
-        if (!signature || signature === '::') continue;
-        if (!bySignature.has(signature)) bySignature.set(signature, mapped);
-      }
-      return bySignature;
-    }, [catalogRows]);
-
-    const libState = useFetch(
-      () => {
-        if (initializing) return Promise.resolve([] as LibraryRow[]);
-        if (!user) return Promise.resolve([]);
-        return getUserLibraryPage(0, 20);
-      },
-      [user?.userId, initializing]
-    );
-
-    const cartState = useFetch(
-      () =>
-        initializing || !user
-          ? Promise.resolve(null as CartRow | null)
-          : getCart().catch(() => null),
-      [user?.userId, initializing]
-    );
-
-    const plansState = useFetch(() => getSubscriptionPlansPublic(), []);
-
-    const subStatusState = useFetch(
-      () => (initializing || !user ? Promise.resolve(null as SubscriptionStatusRow | null) : getMySubscriptionStatus().catch(() => null)),
-      [user?.userId, initializing]
-    );
-
-    const adminCategoriesState = useFetch(
-      () => (initializing || (user?.role ?? '').toUpperCase() !== 'ADMIN' ? Promise.resolve([] as CategoryRow[]) : getAdminCategories().catch(() => [] as CategoryRow[])),
-      [user?.userId, user?.role, initializing]
-    );
-
-    const adminFetch = useFetch(
-      () => {
-        if (initializing) return Promise.resolve(null as PagedResult<ProductRow> | null);
-        if ((page !== 'admin' && page !== 'admin-edit-book') || (user?.role ?? '').toUpperCase() !== 'ADMIN') {
-          return Promise.resolve(null);
-        }
-        return getAdminBooksPaged(adminPag.page, adminPag.size).catch(() => null);
-      },
-      [page, user?.userId, user?.role, adminPag.page, adminPag.size, initializing]
-    );
-
-    const adminOrdersState = useFetch(
-      () => {
-        if (initializing) return Promise.resolve(null as PagedResult<AdminOrderRow> | null);
-        if ((page !== 'admin' && page !== 'personal-library') || (user?.role ?? '').toUpperCase() !== 'ADMIN') {
-          return Promise.resolve(null);
-        }
-        return getAdminOrdersPaged(ordersPag.page, ordersPag.size).catch(() => null);
-      },
-      [page, user?.userId, user?.role, ordersPag.page, ordersPag.size, initializing]
-    );
-
-    useEffect(() => {
-      const isAdminPage = page === 'admin' || page === 'personal-library';
-      if (!isAdminPage || (user?.role ?? '').toUpperCase() !== 'ADMIN') return;
-
-      const refreshAdminOrders = () => {
-        adminOrdersState.refetch();
+      return {
+        ...local,
+        isFlipbook: mergedIsFlipbook,
+        fileUrl: mergedUrl,
+        downloadUrl: local.downloadUrl ?? catalogMatch.downloadUrl,
       };
+    });
+  }, [libState.data, publicCatalogByProductId, publicCatalogBySignature]);
+  const purchasedPersonalBooks = useMemo(
+    () => personalBooks.filter((book) => (book.accessType ?? '').toLowerCase() === 'purchased'),
+    [personalBooks]
+  );
+  const readingBook =
+    purchasedPersonalBooks.find((b) => b.progress != null && b.progress > 0) ??
+    purchasedPersonalBooks[0];
 
-      refreshAdminOrders();
+  const cart = cartState.data ?? null;
+  const cartBooks = useMemo(
+    () => (cart?.items ?? []).map(cartItemToUiBook),
+    [cart]
+  );
 
-      const timer = window.setInterval(refreshAdminOrders, ADMIN_STATS_REFRESH_MS);
-      const handleFocus = () => refreshAdminOrders();
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible') {
-          refreshAdminOrders();
-        }
-      };
-      const handleOrderActivity = () => refreshAdminOrders();
+  useEffect(() => {
+    // Keep optimistic removals hidden until backend cart no longer contains them.
+    setOptimisticallyDeletedCartItemIds((current) => {
+      if (current.size === 0) return current;
+      const serverIds = new Set(
+        cartBooks
+          .map((book) => String(book.cartItemId || book.id || '').trim())
+          .filter(Boolean)
+      );
+      const next = new Set<string>();
+      let changed = false;
 
-      window.addEventListener('focus', handleFocus);
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener(ORDER_ACTIVITY_EVENT, handleOrderActivity as EventListener);
-
-      return () => {
-        window.clearInterval(timer);
-        window.removeEventListener('focus', handleFocus);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener(ORDER_ACTIVITY_EVENT, handleOrderActivity as EventListener);
-      };
-    }, [page, user?.role, adminOrdersState.refetch]);
-
-    const adminPublicLibraryState = useFetch(
-      () => {
-        if (initializing) return Promise.resolve([] as { publicLibraryId?: string }[]);
-        if (page !== 'admin' || (user?.role ?? '').toUpperCase() !== 'ADMIN') {
-          return Promise.resolve([] as { publicLibraryId?: string }[]);
-        }
-        return getAdminPublicLibrary().catch(() => [] as { publicLibraryId?: string }[]);
-      },
-      [page, user?.userId, user?.role, initializing]
-    );
-
-    useEffect(() => {
-      const d = adminFetch.data;
-      if (d) adminPag.applyResult(d);
-      // applyResult is stable; avoid depending on whole pagination object identity
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [adminFetch.data]);
-
-    const personalBooks = useMemo(() => {
-      return (libState.data ?? []).map((row) => {
-        const local = libraryRowToUiBook(row);
-        const catalogMatch =
-          publicCatalogByProductId.get(String(local.id ?? '').trim().toLowerCase()) ||
-          publicCatalogBySignature.get(getBookSignature(local));
-
-        if (!catalogMatch) {
-          return local;
-        }
-
-        const mergedUrl =
-          (local.fileUrl ?? '').trim() ||
-          (catalogMatch.downloadUrl ?? '').trim() ||
-          undefined;
-
-        const mergedIsFlipbook =
-          Boolean(local.isFlipbook) ||
-          Boolean(catalogMatch.isFlipbook) ||
-          Boolean(mergedUrl && /(designrr\.page|designrr\.s3\.amazonaws\.com|type=fp|flipbook)/i.test(mergedUrl));
-
-        return {
-          ...local,
-          isFlipbook: mergedIsFlipbook,
-          fileUrl: mergedUrl,
-          downloadUrl: local.downloadUrl ?? catalogMatch.downloadUrl,
-        };
-      });
-    }, [libState.data, publicCatalogByProductId, publicCatalogBySignature]);
-    const purchasedPersonalBooks = useMemo(
-      () => personalBooks.filter((book) => (book.accessType ?? '').toLowerCase() === 'purchased'),
-      [personalBooks]
-    );
-    const readingBook =
-      purchasedPersonalBooks.find((b) => b.progress != null && b.progress > 0) ??
-      purchasedPersonalBooks[0];
-
-    const cart = cartState.data ?? null;
-    const cartBooks = useMemo(
-      () => (cart?.items ?? []).map(cartItemToUiBook),
-      [cart]
-    );
-
-    useEffect(() => {
-      // Keep optimistic removals hidden until backend cart no longer contains them.
-      setOptimisticallyDeletedCartItemIds((current) => {
-        if (current.size === 0) return current;
-        const serverIds = new Set(
-          cartBooks
-            .map((book) => String(book.cartItemId || book.id || '').trim())
-            .filter(Boolean)
-        );
-        const next = new Set<string>();
-        let changed = false;
-
-        current.forEach((id) => {
-          if (serverIds.has(id)) {
-            next.add(id);
-          } else {
-            changed = true;
-          }
-        });
-
-        return changed ? next : current;
-      });
-    }, [cartBooks]);
-
-    // Persist optimistic cart deletions to sessionStorage so they survive page refresh
-    useEffect(() => {
-      try {
-        if (optimisticallyDeletedCartItemIds.size > 0) {
-          sessionStorage.setItem(
-            DELETED_CART_ITEMS_STORAGE_KEY,
-            JSON.stringify([...optimisticallyDeletedCartItemIds])
-          );
+      current.forEach((id) => {
+        if (serverIds.has(id)) {
+          next.add(id);
         } else {
-          sessionStorage.removeItem(DELETED_CART_ITEMS_STORAGE_KEY);
+          changed = true;
         }
-      } catch { /* ignore storage errors */ }
-    }, [optimisticallyDeletedCartItemIds]);
-
-    useEffect(() => {
-      // Sync from backend, but exclude optimistically deleted items
-      setCartUiBooks(
-        cartBooks.filter((book) => {
-          const lineId = String(book.cartItemId || book.id || '').trim();
-          return lineId ? !optimisticallyDeletedCartItemIds.has(lineId) : true;
-        })
-      );
-    }, [cartBooks, optimisticallyDeletedCartItemIds]);
-
-    const savedBookIds = useMemo(
-      () => new Set(savedForLater.map((book) => book.productId).filter(Boolean)),
-      [savedForLater]
-    );
-
-    const activeCartBooks = useMemo(
-      () => cartUiBooks.filter((book) => {
-        // Exclude items that are in the saved-for-later list
-        return !savedBookIds.has(book.productId);
-      }),
-      [cartUiBooks, savedBookIds]
-    );
-
-    const checkoutSubtotalNum = useMemo(
-      () =>
-        activeCartBooks.reduce(
-          (sum, book) => sum + parseCurrencyAmount(book.price),
-          0
-        ),
-      [activeCartBooks]
-    );
-
-    const uiPlans = useMemo(
-      () => (plansState.data ?? []).map(subscriptionRowToUiPlan),
-      [plansState.data]
-    );
-
-    const adminBooks = useMemo(
-      () =>
-        (adminFetch.data?.content ?? [])
-          .filter((row) => !optimisticallyDeletedBookIds.has(String(row.productId ?? '').trim()))
-          .map(productRowToVaultBook),
-      [adminFetch.data, optimisticallyDeletedBookIds]
-    );
-
-    const adminOrderRows = useMemo(
-      () => adminOrdersState.data?.content ?? [],
-      [adminOrdersState.data]
-    );
-
-    const readerTitle = readingBook?.title || 'Reader';
-    const readerFormat = readingBook && isFlipbookBook(readingBook) ? 'flipbook' : readingBook?.fileFormat;
-    const readerUrl = readingBook?.fileUrl ?? readingBook?.downloadUrl;
-
-    const handleBeginReading = () => {
-      const readingBookIsFlipbook = readingBook ? isFlipbookBook(readingBook) : false;
-      if (readingBookIsFlipbook && readerUrl) {
-        const blockedReason = getBlockedFlipbookReason(readerUrl);
-        if (blockedReason) {
-          setLibraryActionMsg(blockedReason);
-          return;
-        }
-        window.open(readerUrl, '_blank', 'noopener,noreferrer');
-        setLibraryActionMsg('');
-        return;
-      }
-      if (readingBook) {
-        navigateToPage('reader');
-        return;
-      }
-      setLibraryActionMsg('Purchase a book to unlock reading access.');
-      navigateToPage('public-library');
-    };
-
-    const handleViewLandingDetails = () => {
-      navigateToPage('public-library');
-    };
-
-    const handleOpenReader = (book?: Book) => {
-      const targetBook = book?.id ? book : readingBook;
-      const fallbackCatalogMatch = targetBook
-        ? publicCatalogByProductId.get(String(targetBook.id ?? '').trim().toLowerCase()) ||
-        publicCatalogBySignature.get(getBookSignature(targetBook))
-        : undefined;
-      const targetUrl =
-        targetBook?.fileUrl ??
-        targetBook?.downloadUrl ??
-        fallbackCatalogMatch?.downloadUrl;
-      const targetIsFlipbook =
-        (targetBook ? isFlipbookBook(targetBook) : false) ||
-        (fallbackCatalogMatch ? isFlipbookBook(fallbackCatalogMatch) : false);
-      if (targetIsFlipbook && targetUrl) {
-        const blockedReason = getBlockedFlipbookReason(targetUrl);
-        if (blockedReason) {
-          setLibraryActionMsg(blockedReason);
-          return;
-        }
-        window.open(targetUrl, '_blank', 'noopener,noreferrer');
-        setLibraryActionMsg('');
-        return;
-      }
-      if (!targetBook) {
-        setLibraryActionMsg('Purchase a book to read it in your private library.');
-        return;
-      }
-      setLibraryActionMsg('');
-      setActiveReadingBookId(targetBook.id);
-      navigateToPage('reader');
-    };
-
-    const handleOpenCatalog = () => {
-      navigateToPage('public-library');
-    };
-
-    const handleToggleBillingCycle = () => {
-      setBillingCycle((current) => (current === 'annual' ? 'monthly' : 'annual'));
-    };
-
-    const handlePublicSortToggle = () => {
-      setPublicSortMode((current) => (current === 'latest' ? 'title' : 'latest'));
-    };
-
-    const handlePublicViewMode = (mode: 'grid' | 'list') => {
-      setPublicViewMode(mode);
-    };
-
-    const handleWishlistMoveToWishlist = (book: Book) => {
-      setWishlistActionMsg('');
-      const isAlreadySaved = (savedForLater || []).some((item) => item.id === book.id);
-
-      if (isAlreadySaved) {
-        setWishlistActionMsg('Item already in wishlist.');
-        setTimeout(() => setWishlistActionMsg(''), 3000);
-        return;
-      }
-
-      setSavedForLater((current) => [...current, book]);
-      setWishlistActionMsg('Moved to wishlist.');
-      setTimeout(() => setWishlistActionMsg(''), 3000);
-
-      if (book.cartItemId) {
-        handleRemoveCartLine(book.cartItemId);
-      }
-    };
-
-    const handleWishlistSaveForLater = (book: Book) => {
-      handleWishlistMoveToWishlist(book);
-    };
-
-    const handleMoveSavedToCart = (book: Book) => {
-      setWishlistActionMsg('');
-      // Remove from wishlist using consistent ID
-      setSavedForLater((current) => current.filter((item) => item.id !== book.id));
-      handleAddToCart(book);
-    };
-
-    const handleRemoveFromWishlist = (book: Book) => {
-      setWishlistActionMsg('');
-      // Use only the ID field as primary key for reliable matching
-      const bookIdToRemove = book.id;
-      console.log('[wishlist] Removing book:', { id: book.id, productId: book.productId, title: book.title });
-
-      // Remove from state
-      setSavedForLater((current) => {
-        const beforeCount = current.length;
-        const updated = current.filter((item) => item.id !== bookIdToRemove);
-        const afterCount = updated.length;
-        console.log('[wishlist] Filter result:', { beforeCount, afterCount, removed: beforeCount > afterCount });
-        return updated;
       });
 
-      // Show confirmation
-      setWishlistActionMsg('Item removed from wishlist.');
+      return changed ? next : current;
+    });
+  }, [cartBooks]);
+
+  // Persist optimistic cart deletions to sessionStorage so they survive page refresh
+  useEffect(() => {
+    try {
+      if (optimisticallyDeletedCartItemIds.size > 0) {
+        sessionStorage.setItem(
+          DELETED_CART_ITEMS_STORAGE_KEY,
+          JSON.stringify([...optimisticallyDeletedCartItemIds])
+        );
+      } else {
+        sessionStorage.removeItem(DELETED_CART_ITEMS_STORAGE_KEY);
+      }
+    } catch { /* ignore storage errors */ }
+  }, [optimisticallyDeletedCartItemIds]);
+
+  useEffect(() => {
+    // Sync from backend, but exclude optimistically deleted items
+    setCartUiBooks(
+      cartBooks.filter((book) => {
+        const lineId = String(book.cartItemId || book.id || '').trim();
+        return lineId ? !optimisticallyDeletedCartItemIds.has(lineId) : true;
+      })
+    );
+  }, [cartBooks, optimisticallyDeletedCartItemIds]);
+
+  const savedBookIds = useMemo(
+    () => new Set(savedForLater.map((book) => book.productId).filter(Boolean)),
+    [savedForLater]
+  );
+
+  const activeCartBooks = useMemo(
+    () => cartUiBooks.filter((book) => {
+      // Exclude items that are in the saved-for-later list
+      return !savedBookIds.has(book.productId);
+    }),
+    [cartUiBooks, savedBookIds]
+  );
+
+  const checkoutSubtotalNum = useMemo(
+    () =>
+      activeCartBooks.reduce(
+        (sum, book) => sum + parseCurrencyAmount(book.price),
+        0
+      ),
+    [activeCartBooks]
+  );
+
+  const uiPlans = useMemo(
+    () => (plansState.data ?? []).map(subscriptionRowToUiPlan),
+    [plansState.data]
+  );
+
+  const adminBooks = useMemo(
+    () =>
+      (adminFetch.data?.content ?? [])
+        .filter((row) => !optimisticallyDeletedBookIds.has(String(row.productId ?? '').trim()))
+        .map(productRowToVaultBook),
+    [adminFetch.data, optimisticallyDeletedBookIds]
+  );
+
+  const adminOrderRows = useMemo(
+    () => adminOrdersState.data?.content ?? [],
+    [adminOrdersState.data]
+  );
+
+  const readerTitle = readingBook?.title || 'Reader';
+  const readerFormat = readingBook && isFlipbookBook(readingBook) ? 'flipbook' : readingBook?.fileFormat;
+  const readerUrl = readingBook?.fileUrl ?? readingBook?.downloadUrl;
+
+  const handleBeginReading = () => {
+    const readingBookIsFlipbook = readingBook ? isFlipbookBook(readingBook) : false;
+    if (readingBookIsFlipbook && readerUrl) {
+      const blockedReason = getBlockedFlipbookReason(readerUrl);
+      if (blockedReason) {
+        setLibraryActionMsg(blockedReason);
+        return;
+      }
+      window.open(readerUrl, '_blank', 'noopener,noreferrer');
+      setLibraryActionMsg('');
+      return;
+    }
+    if (readingBook) {
+      navigateToPage('reader');
+      return;
+    }
+    setLibraryActionMsg('Purchase a book to unlock reading access.');
+    navigateToPage('public-library');
+  };
+
+  const handleViewLandingDetails = () => {
+    navigateToPage('public-library');
+  };
+
+  const handleOpenReader = (book?: Book) => {
+    const targetBook = book?.id ? book : readingBook;
+    const fallbackCatalogMatch = targetBook
+      ? publicCatalogByProductId.get(String(targetBook.id ?? '').trim().toLowerCase()) ||
+      publicCatalogBySignature.get(getBookSignature(targetBook))
+      : undefined;
+    const targetUrl =
+      targetBook?.fileUrl ??
+      targetBook?.downloadUrl ??
+      fallbackCatalogMatch?.downloadUrl;
+    const targetIsFlipbook =
+      (targetBook ? isFlipbookBook(targetBook) : false) ||
+      (fallbackCatalogMatch ? isFlipbookBook(fallbackCatalogMatch) : false);
+    if (targetIsFlipbook && targetUrl) {
+      const blockedReason = getBlockedFlipbookReason(targetUrl);
+      if (blockedReason) {
+        setLibraryActionMsg(blockedReason);
+        return;
+      }
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      setLibraryActionMsg('');
+      return;
+    }
+    if (!targetBook) {
+      setLibraryActionMsg('Purchase a book to read it in your private library.');
+      return;
+    }
+    setLibraryActionMsg('');
+    setActiveReadingBookId(targetBook.id);
+    navigateToPage('reader');
+  };
+
+  const handleOpenCatalog = () => {
+    navigateToPage('public-library');
+  };
+
+  const handleToggleBillingCycle = () => {
+    setBillingCycle((current) => (current === 'annual' ? 'monthly' : 'annual'));
+  };
+
+  const handlePublicSortToggle = () => {
+    setPublicSortMode((current) => (current === 'latest' ? 'title' : 'latest'));
+  };
+
+  const handlePublicViewMode = (mode: 'grid' | 'list') => {
+    setPublicViewMode(mode);
+  };
+
+  const handleWishlistMoveToWishlist = (book: Book) => {
+    setWishlistActionMsg('');
+    const isAlreadySaved = (savedForLater || []).some((item) => item.id === book.id);
+
+    if (isAlreadySaved) {
+      setWishlistActionMsg('Item already in wishlist.');
       setTimeout(() => setWishlistActionMsg(''), 3000);
-    };
+      return;
+    }
 
-    const handleToggleWishlistExpanded = () => {
-      setWishlistExpanded((current) => !current);
-    };
+    setSavedForLater((current) => [...current, book]);
+    setWishlistActionMsg('Moved to wishlist.');
+    setTimeout(() => setWishlistActionMsg(''), 3000);
 
-    const handleRemoveCartLine = (cartItemId: string) => {
-      setWishlistActionMsg('');
-      // Track this as optimistically deleted so it doesn't come back
-      const normalizedCartItemId = String(cartItemId || '').trim();
-      if (!normalizedCartItemId) return;
-      setOptimisticallyDeletedCartItemIds((current) => new Set([...current, normalizedCartItemId]));
+    if (book.cartItemId) {
+      handleRemoveCartLine(book.cartItemId);
+    }
+  };
 
-      // Remove item from UI state optimistically
-      setCartUiBooks((current) =>
-        current.filter((book) => {
-          const lineId = String(book.cartItemId || book.id || '').trim();
-          return lineId !== normalizedCartItemId;
-        })
-      );
-      void (async () => {
-        try {
-          // Resolve against the latest backend cart first to avoid deleting with a stale UI id.
-          const latestBefore = await getCart().catch(() => cartState.data ?? null);
-          const latestItems = latestBefore?.items ?? [];
-          const resolvedCartItemId =
-            latestItems.find(
-              (item) => String(item.cartItemId ?? '').trim() === normalizedCartItemId
-            )?.cartItemId ??
-            latestItems.find(
-              (item) => String(item.productId ?? '').trim() === normalizedCartItemId
-            )?.cartItemId ??
-            normalizedCartItemId;
+  const handleWishlistSaveForLater = (book: Book) => {
+    handleWishlistMoveToWishlist(book);
+  };
 
-          const resolvedId = String(resolvedCartItemId).trim();
-          await removeCartItem(resolvedId);
+  const handleMoveSavedToCart = (book: Book) => {
+    setWishlistActionMsg('');
+    // Remove from wishlist using consistent ID
+    setSavedForLater((current) => current.filter((item) => item.id !== book.id));
+    handleAddToCart(book);
+  };
 
-          // Verify deletion from the latest cart snapshot; fallback to quantity=0 if needed.
-          let verifyCart = await getCart().catch(() => null);
-          const isStillPresent = (row: CartRow | null) =>
-            Boolean(
-              row?.items?.some(
-                (item) => String(item.cartItemId ?? '').trim() === resolvedId
-              )
-            );
+  const handleRemoveFromWishlist = (book: Book) => {
+    setWishlistActionMsg('');
+    // Use only the ID field as primary key for reliable matching
+    const bookIdToRemove = book.id;
+    console.log('[wishlist] Removing book:', { id: book.id, productId: book.productId, title: book.title });
 
-          if (isStillPresent(verifyCart)) {
-            await updateCartItemQuantity(resolvedId, 0).catch(async () => {
-              await removeCartItem(resolvedId);
-            });
-            verifyCart = await getCart().catch(() => null);
-          }
+    // Remove from state
+    setSavedForLater((current) => {
+      const beforeCount = current.length;
+      const updated = current.filter((item) => item.id !== bookIdToRemove);
+      const afterCount = updated.length;
+      console.log('[wishlist] Filter result:', { beforeCount, afterCount, removed: beforeCount > afterCount });
+      return updated;
+    });
 
-          if (isStillPresent(verifyCart)) {
-            throw new Error('Cart item still exists on server.');
-          }
+    // Show confirmation
+    setWishlistActionMsg('Item removed from wishlist.');
+    setTimeout(() => setWishlistActionMsg(''), 3000);
+  };
 
-          cartState.refetch();
+  const handleToggleWishlistExpanded = () => {
+    setWishlistExpanded((current) => !current);
+  };
 
-          // Show success message
-          setWishlistActionMsg('Item removed from cart.');
-          // Auto-clear success message after 3 seconds
-          setTimeout(() => setWishlistActionMsg(''), 3000);
-        } catch (e) {
-          // Only roll back optimistic hiding if item truly still exists on server.
-          const latestAfterError = await getCart().catch(() => null);
-          const stillExists = Boolean(
-            latestAfterError?.items?.some(
-              (item) => String(item.cartItemId ?? '').trim() === normalizedCartItemId
+  const handleRemoveCartLine = (cartItemId: string) => {
+    setWishlistActionMsg('');
+    // Track this as optimistically deleted so it doesn't come back
+    const normalizedCartItemId = String(cartItemId || '').trim();
+    if (!normalizedCartItemId) return;
+    setOptimisticallyDeletedCartItemIds((current) => new Set([...current, normalizedCartItemId]));
+
+    // Remove item from UI state optimistically
+    setCartUiBooks((current) =>
+      current.filter((book) => {
+        const lineId = String(book.cartItemId || book.id || '').trim();
+        return lineId !== normalizedCartItemId;
+      })
+    );
+    void (async () => {
+      try {
+        // Resolve against the latest backend cart first to avoid deleting with a stale UI id.
+        const latestBefore = await getCart().catch(() => cartState.data ?? null);
+        const latestItems = latestBefore?.items ?? [];
+        const resolvedCartItemId =
+          latestItems.find(
+            (item) => String(item.cartItemId ?? '').trim() === normalizedCartItemId
+          )?.cartItemId ??
+          latestItems.find(
+            (item) => String(item.productId ?? '').trim() === normalizedCartItemId
+          )?.cartItemId ??
+          normalizedCartItemId;
+
+        const resolvedId = String(resolvedCartItemId).trim();
+        await removeCartItem(resolvedId);
+
+        // Verify deletion from the latest cart snapshot; fallback to quantity=0 if needed.
+        let verifyCart = await getCart().catch(() => null);
+        const isStillPresent = (row: CartRow | null) =>
+          Boolean(
+            row?.items?.some(
+              (item) => String(item.cartItemId ?? '').trim() === resolvedId
             )
           );
-          if (stillExists) {
-            setOptimisticallyDeletedCartItemIds((current) => {
-              const updated = new Set(current);
-              updated.delete(normalizedCartItemId);
-              return updated;
-            });
-          }
-          cartState.refetch();
-          setWishlistActionMsg(e instanceof Error ? e.message : 'Unable to remove item.');
+
+        if (isStillPresent(verifyCart)) {
+          await updateCartItemQuantity(resolvedId, 0).catch(async () => {
+            await removeCartItem(resolvedId);
+          });
+          verifyCart = await getCart().catch(() => null);
         }
-      })();
-    };
 
-    const handleAddToCart = (book: Book) => {
-      setPublicActionMsg('');
-      void (async () => {
-        if (!user) {
-          setPublicActionMsg('Sign in to add books to cart.');
-          navigateToPage('login');
-          return;
+        if (isStillPresent(verifyCart)) {
+          throw new Error('Cart item still exists on server.');
         }
-        if ((user.role ?? '').toUpperCase() === 'ADMIN') {
-          setPublicActionMsg('Admin accounts cannot add books to cart.');
-          return;
-        }
-        const productId = book.productId || book.id;
-        if (!productId) return;
-        try {
-          // Check if item is already in cart before adding
-          const isAlreadyInCart = (cartState.data?.items || []).some(
-            (item) => item.productId === productId
-          );
 
-          await addCartItem(productId, 1);
-          // Remove from wishlist using consistent ID matching
-          setSavedForLater((current) => current.filter((item) => item.id !== book.id));
-
-          // Wait before refetch to let state settle
-          await new Promise(resolve => setTimeout(resolve, 100));
-          cartState.refetch();
-
-          // Show appropriate message based on whether it was already in cart
-          const msg = isAlreadyInCart ? 'Item already in cart.' : 'Item added to cart.';
-          setPublicActionMsg(msg);
-          showToast(isAlreadyInCart ? `"${book.title}" is already in your cart` : `"${book.title}" added to cart âœ“`);
-          // Auto-clear success message after 3 seconds
-          setTimeout(() => setPublicActionMsg(''), 3000);
-        } catch (e) {
-          setPublicActionMsg(e instanceof Error ? e.message : 'Unable to add to cart.');
-        }
-      })();
-    };
-
-    const handleSubscribePlan = (planId: string) => {
-      setSubscriptionActionError('');
-      void (async () => {
-        if (!user) {
-          setSubscriptionActionError('Sign in to subscribe.');
-          return;
-        }
-        try {
-          await postSubscribe(planId);
-          subStatusState.refetch();
-        } catch (e) {
-          try {
-            await activateUserSubscription(planId);
-            subStatusState.refetch();
-          } catch (e2) {
-            setSubscriptionActionError(
-              e2 instanceof Error ? e2.message : 'Subscription failed.'
-            );
-          }
-        }
-      })();
-    };
-
-    const handleFinalizeCheckout = async (payment: {
-      cardholderName: string;
-      cardNumber: string;
-      expiry: string;
-      cvv: string;
-    }) => {
-      setCheckoutErr('');
-      const numberDigits = payment.cardNumber.replace(/\D+/g, '');
-      if (!payment.cardholderName.trim() || numberDigits.length < 12 || !payment.expiry.trim() || payment.cvv.trim().length < 3) {
-        setCheckoutErr('Enter valid debit/credit card details to continue.');
-        return;
-      }
-
-      try {
-        const result = (await postCheckout({
-          gateway: 'demo',
-          paymentMethod: 'card',
-          currency: 'USD',
-        })) as {
-          order?: { orderId?: string; totalAmount?: number | string; items?: Array<{ totalPrice?: number | string }> };
-          payment?: { paymentId?: string; amount?: number | string };
-        };
-
-        const orderId = String(result?.order?.orderId ?? '').trim() || `ORD-${Date.now()}`;
-        const lineItems = Array.isArray(result?.order?.items) ? result.order.items : [];
-        const lineItemTotal = lineItems.reduce((sum, item) => sum + Number(item.totalPrice ?? 0), 0);
-        const backendTotalRaw = result?.order?.totalAmount ?? result?.payment?.amount;
-        const backendTotal = typeof backendTotalRaw === 'number' ? backendTotalRaw : Number(backendTotalRaw ?? 0);
-        const totalAmount = Number.isFinite(lineItemTotal) && lineItemTotal > 0 ? lineItemTotal : backendTotal;
-        const last4 = numberDigits.slice(-4);
-
-        setLatestInvoice({
-          invoiceNumber: `INV-${Date.now()}`,
-          orderId,
-          amountLabel: formatMoney(Number.isFinite(totalAmount) ? totalAmount : 0),
-          dateLabel: new Date().toLocaleString(),
-          paymentLabel: `Card ending ${last4 || 'XXXX'}`,
-        });
-
-        libState.refetch();
-        adminOrdersState.refetch();
-        window.dispatchEvent(new CustomEvent(ORDER_ACTIVITY_EVENT));
-        setLibraryActionMsg('Checkout successful. Purchased books are now in your private library.');
-        setPage('personal-library');
         cartState.refetch();
+
+        // Show success message
+        setWishlistActionMsg('Item removed from cart.');
+        // Auto-clear success message after 3 seconds
+        setTimeout(() => setWishlistActionMsg(''), 3000);
       } catch (e) {
-        setCheckoutErr(e instanceof Error ? e.message : 'Checkout failed.');
+        // Only roll back optimistic hiding if item truly still exists on server.
+        const latestAfterError = await getCart().catch(() => null);
+        const stillExists = Boolean(
+          latestAfterError?.items?.some(
+            (item) => String(item.cartItemId ?? '').trim() === normalizedCartItemId
+          )
+        );
+        if (stillExists) {
+          setOptimisticallyDeletedCartItemIds((current) => {
+            const updated = new Set(current);
+            updated.delete(normalizedCartItemId);
+            return updated;
+          });
+        }
+        cartState.refetch();
+        setWishlistActionMsg(e instanceof Error ? e.message : 'Unable to remove item.');
       }
-    };
+    })();
+  };
 
-    const handleDownloadInvoice = () => {
-      if (!latestInvoice) return;
-      const lines = [
-        'Masuki Books - Payment Invoice',
-        `Invoice No: ${latestInvoice.invoiceNumber}`,
-        `Order ID: ${latestInvoice.orderId}`,
-        `Date: ${latestInvoice.dateLabel}`,
-        `Amount: ${latestInvoice.amountLabel}`,
-        `Payment: ${latestInvoice.paymentLabel}`,
-      ];
-      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-      const href = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = href;
-      anchor.download = `${latestInvoice.invoiceNumber}.txt`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(href);
-    };
-
-    const handlePublicPurchaseRequired = (book: Book) => {
-      if ((user?.role ?? '').toUpperCase() === 'ADMIN') {
-        setPublicActionMsg('Admin accounts cannot purchase titles from the public library.');
+  const handleAddToCart = (book: Book) => {
+    setPublicActionMsg('');
+    void (async () => {
+      if (!user) {
+        setPublicActionMsg('Sign in to add books to cart.');
+        navigateToPage('login');
         return;
       }
-      const title = book.title || 'This title';
-      setPublicActionMsg(`${title} requires purchase before viewing. Add it to cart and complete checkout.`);
-    };
-
-    const handleAdminCreateBook = () => {
-      setAdminActionError('');
-      setPage('admin-add-book');
-    };
-
-    const handleAdminSubmitBookForm = async (payload: {
-      categoryId: string;
-      title: string;
-      author: string;
-      sku: string;
-      format: string;
-      price: number;
-      contentType?: string;
-      status?: string;
-      description?: string;
-      file?: File;
-      fileUrl?: string;
-    }) => {
-      setAdminActionError('');
-      setAdminBookSaving(true);
-      try {
-        const { file, fileUrl, ...bookBody } = payload;
-        let usedRetrySku = false;
-        let created;
-        try {
-          created = await createAdminBook({ ...bookBody, fileUrl });
-        } catch (createError) {
-          if (!isDuplicateSkuError(createError)) {
-            throw createError;
-          }
-          usedRetrySku = true;
-          created = await createAdminBook({
-            ...bookBody,
-            sku: generateDraftSku(),
-            fileUrl,
-          });
-        }
-        const hasUrl = Boolean(fileUrl?.trim());
-        const hasFile = Boolean(file);
-
-        if (hasFile && hasUrl && file) {
-          // Preserve URL-based reader behavior and save selected file locally.
-          triggerLocalFileDownload(file);
-        } else if (file) {
-          await uploadAdminBookFile(created.productId, file);
-        }
-        adminFetch.refetch();
-        catalogState.refetch();
-        adminCategoriesState.refetch();
-        if (hasFile && hasUrl) {
-          setAdminActionError(
-            usedRetrySku
-              ? 'Book created with a regenerated SKU and URL. Selected file downloaded locally.'
-              : 'Book created with URL. Selected file downloaded locally.'
-          );
-        } else {
-          setAdminActionError(
-            usedRetrySku
-              ? 'Book created successfully with a regenerated SKU.'
-              : 'Book created successfully.'
-          );
-        }
-        setPage('admin');
-      } catch (e) {
-        setAdminActionError(e instanceof Error ? e.message : 'Failed to create book.');
-        throw e;
-      } finally {
-        setAdminBookSaving(false);
+      if ((user.role ?? '').toUpperCase() === 'ADMIN') {
+        setPublicActionMsg('Admin accounts cannot add books to cart.');
+        return;
       }
-    };
+      const productId = book.productId || book.id;
+      if (!productId) return;
+      try {
+        // Check if item is already in cart before adding
+        const isAlreadyInCart = (cartState.data?.items || []).some(
+          (item) => item.productId === productId
+        );
 
-    const handleAdminCreateCategory = () => {
-      setAdminActionError('');
-      void (async () => {
+        await addCartItem(productId, 1);
+        // Remove from wishlist using consistent ID matching
+        setSavedForLater((current) => current.filter((item) => item.id !== book.id));
+
+        // Wait before refetch to let state settle
+        await new Promise(resolve => setTimeout(resolve, 100));
+        cartState.refetch();
+
+        // Show appropriate message based on whether it was already in cart
+        const msg = isAlreadyInCart ? 'Item already in cart.' : 'Item added to cart.';
+        setPublicActionMsg(msg);
+        showToast(isAlreadyInCart ? `"${book.title}" is already in your cart` : `"${book.title}" added to cart âœ“`);
+        // Auto-clear success message after 3 seconds
+        setTimeout(() => setPublicActionMsg(''), 3000);
+      } catch (e) {
+        setPublicActionMsg(e instanceof Error ? e.message : 'Unable to add to cart.');
+      }
+    })();
+  };
+
+  const handleSubscribePlan = (planId: string) => {
+    setSubscriptionActionError('');
+    void (async () => {
+      if (!user) {
+        setSubscriptionActionError('Sign in to subscribe.');
+        return;
+      }
+      try {
+        await postSubscribe(planId);
+        subStatusState.refetch();
+      } catch (e) {
         try {
-          const name = window.prompt('Category name');
-          if (!name) return;
-          const suggestedSlug = name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
-          const slug = (window.prompt('Category slug', suggestedSlug) ?? '').trim();
-          if (!slug) {
-            setAdminActionError('Slug is required.');
-            return;
-          }
-          await createAdminCategory({ name, slug });
-          adminCategoriesState.refetch();
-          setAdminActionError('Category created successfully.');
-        } catch (e) {
-          setAdminActionError(e instanceof Error ? e.message : 'Failed to create category.');
+          await activateUserSubscription(planId);
+          subStatusState.refetch();
+        } catch (e2) {
+          setSubscriptionActionError(
+            e2 instanceof Error ? e2.message : 'Subscription failed.'
+          );
         }
-      })();
-    };
+      }
+    })();
+  };
 
-    const handleAdminCreatePlan = () => {
-      setAdminActionError('');
-      void (async () => {
-        try {
-          const planName = window.prompt('Plan name');
-          if (!planName) return;
-          const priceRaw = window.prompt('Plan price', '9.99') ?? '9.99';
-          const durationRaw = window.prompt('Duration (days)', '30') ?? '30';
-          const price = Number(priceRaw);
-          const durationDays = Number(durationRaw);
-          if (Number.isNaN(price) || Number.isNaN(durationDays) || durationDays < 1) {
-            setAdminActionError('Provide valid price and duration days.');
-            return;
-          }
-          await createAdminSubscriptionPlan({ planName, price, durationDays });
-          plansState.refetch();
-          setAdminActionError('Subscription plan created.');
-        } catch (e) {
-          setAdminActionError(e instanceof Error ? e.message : 'Failed to create subscription plan.');
-        }
-      })();
-    };
+  const handleFinalizeCheckout = async (payment: {
+    cardholderName: string;
+    cardNumber: string;
+    expiry: string;
+    cvv: string;
+  }) => {
+    setCheckoutErr('');
+    const numberDigits = payment.cardNumber.replace(/\D+/g, '');
+    if (!payment.cardholderName.trim() || numberDigits.length < 12 || !payment.expiry.trim() || payment.cvv.trim().length < 3) {
+      setCheckoutErr('Enter valid debit/credit card details to continue.');
+      return;
+    }
 
-    const handleAdminUpsertPublicLibrary = () => {
-      setAdminActionError('');
-      void (async () => {
-        try {
-          const productId = window.prompt('Product ID to publish in public library');
-          if (!productId) return;
-          await upsertAdminPublicLibrary({
-            productId,
-            visibility: 'PUBLIC',
-            editable: true,
-          });
-          adminPublicLibraryState.refetch();
-          catalogState.refetch();
-          setAdminActionError('Public library entry upserted.');
-        } catch (e) {
-          setAdminActionError(e instanceof Error ? e.message : 'Failed to upsert public library entry.');
-        }
-      })();
-    };
-
-    const handleAdminUpdateOrderStatus = () => {
-      setAdminActionError('');
-      void (async () => {
-        try {
-          const orderId = window.prompt('Order ID');
-          if (!orderId) return;
-          const status = window.prompt('New status', 'CONFIRMED') ?? 'CONFIRMED';
-          await updateAdminOrderStatus(orderId, status);
-          adminOrdersState.refetch();
-          setAdminActionError('Order status updated.');
-        } catch (e) {
-          setAdminActionError(e instanceof Error ? e.message : 'Failed to update order status.');
-        }
-      })();
-    };
-
-    const handleAdminUploadBookFile = (bookId: string) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.pdf,.epub,application/pdf,application/epub+zip';
-      input.onchange = () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        void (async () => {
-          try {
-            await uploadAdminBookFile(bookId, file);
-            adminFetch.refetch();
-            catalogState.refetch();
-            adminCategoriesState.refetch();
-            setAdminActionError('Book file uploaded.');
-          } catch (e) {
-            setAdminActionError(e instanceof Error ? e.message : 'Failed to upload book file.');
-          }
-        })();
+    try {
+      const result = (await postCheckout({
+        gateway: 'demo',
+        paymentMethod: 'card',
+        currency: 'USD',
+      })) as {
+        order?: { orderId?: string; totalAmount?: number | string; items?: Array<{ totalPrice?: number | string }> };
+        payment?: { paymentId?: string; amount?: number | string };
       };
-      input.click();
-    };
 
-    const handleAdminEditBook = (bookId: string) => {
-      setAdminActionError('');
-      setAdminEditingBookId(bookId);
-      setPage('admin-edit-book');
-    };
+      const orderId = String(result?.order?.orderId ?? '').trim() || `ORD-${Date.now()}`;
+      const lineItems = Array.isArray(result?.order?.items) ? result.order.items : [];
+      const lineItemTotal = lineItems.reduce((sum, item) => sum + Number(item.totalPrice ?? 0), 0);
+      const backendTotalRaw = result?.order?.totalAmount ?? result?.payment?.amount;
+      const backendTotal = typeof backendTotalRaw === 'number' ? backendTotalRaw : Number(backendTotalRaw ?? 0);
+      const totalAmount = Number.isFinite(lineItemTotal) && lineItemTotal > 0 ? lineItemTotal : backendTotal;
+      const last4 = numberDigits.slice(-4);
 
-    const handleAdminSubmitEditBookForm = async (payload: {
-      categoryId: string;
-      title: string;
-      author: string;
-      sku: string;
-      format: string;
-      price: number;
-      contentType?: string;
-      status?: string;
-      description?: string;
-    }) => {
-      if (!adminEditingBookId) return;
-      setAdminActionError('');
-      setAdminBookEditSaving(true);
-      try {
-        await updateAdminBook(adminEditingBookId, payload);
-        adminFetch.refetch();
-        catalogState.refetch();
-        adminCategoriesState.refetch();
-        setAdminActionError('Book updated successfully.');
-        setPage('admin');
-        setAdminEditingBookId(null);
-      } catch (e) {
-        setAdminActionError(e instanceof Error ? e.message : 'Failed to update book.');
-        throw e;
-      } finally {
-        setAdminBookEditSaving(false);
-      }
-    };
-
-    const handleAdminDeleteFirstPublicLibraryRecord = () => {
-      setAdminActionError('');
-      void (async () => {
-        try {
-          const firstId = adminPublicLibraryState.data?.[0]?.publicLibraryId;
-          if (!firstId) {
-            setAdminActionError('No public library records to delete.');
-            return;
-          }
-          await deleteAdminPublicLibrary(firstId);
-          adminPublicLibraryState.refetch();
-          catalogState.refetch();
-          setAdminActionError('Deleted one public library record.');
-        } catch (e) {
-          setAdminActionError(e instanceof Error ? e.message : 'Failed to delete public library record.');
-        }
-      })();
-    };
-
-    const handleAdminDeleteBooks = (bookIds: string[]) => {
-      const ids = bookIds.map((id) => String(id).trim()).filter(Boolean);
-      if (ids.length === 0) return;
-
-      setAdminActionError('');
-      setOptimisticallyDeletedBookIds((prev) => {
-        const next = new Set(prev);
-        for (const id of ids) next.add(id);
-        return next;
+      setLatestInvoice({
+        invoiceNumber: `INV-${Date.now()}`,
+        orderId,
+        amountLabel: formatMoney(Number.isFinite(totalAmount) ? totalAmount : 0),
+        dateLabel: new Date().toLocaleString(),
+        paymentLabel: `Card ending ${last4 || 'XXXX'}`,
       });
 
+      libState.refetch();
+      adminOrdersState.refetch();
+      window.dispatchEvent(new CustomEvent(ORDER_ACTIVITY_EVENT));
+      setLibraryActionMsg('Checkout successful. Purchased books are now in your private library.');
+      setPage('personal-library');
+      cartState.refetch();
+    } catch (e) {
+      setCheckoutErr(e instanceof Error ? e.message : 'Checkout failed.');
+    }
+  };
+
+  const handleDownloadInvoice = () => {
+    if (!latestInvoice) return;
+    const lines = [
+      'Masuki Books - Payment Invoice',
+      `Invoice No: ${latestInvoice.invoiceNumber}`,
+      `Order ID: ${latestInvoice.orderId}`,
+      `Date: ${latestInvoice.dateLabel}`,
+      `Amount: ${latestInvoice.amountLabel}`,
+      `Payment: ${latestInvoice.paymentLabel}`,
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = `${latestInvoice.invoiceNumber}.txt`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(href);
+  };
+
+  const handlePublicPurchaseRequired = (book: Book) => {
+    if ((user?.role ?? '').toUpperCase() === 'ADMIN') {
+      setPublicActionMsg('Admin accounts cannot purchase titles from the public library.');
+      return;
+    }
+    const title = book.title || 'This title';
+    setPublicActionMsg(`${title} requires purchase before viewing. Add it to cart and complete checkout.`);
+  };
+
+  const handleAdminCreateBook = () => {
+    setAdminActionError('');
+    setPage('admin-add-book');
+  };
+
+  const handleAdminSubmitBookForm = async (payload: {
+    categoryId: string;
+    title: string;
+    author: string;
+    sku: string;
+    format: string;
+    price: number;
+    contentType?: string;
+    status?: string;
+    description?: string;
+    file?: File;
+    fileUrl?: string;
+  }) => {
+    setAdminActionError('');
+    setAdminBookSaving(true);
+    try {
+      const { file, fileUrl, ...bookBody } = payload;
+      let usedRetrySku = false;
+      let created;
+      try {
+        created = await createAdminBook({ ...bookBody, fileUrl });
+      } catch (createError) {
+        if (!isDuplicateSkuError(createError)) {
+          throw createError;
+        }
+        usedRetrySku = true;
+        created = await createAdminBook({
+          ...bookBody,
+          sku: generateDraftSku(),
+          fileUrl,
+        });
+      }
+      const hasUrl = Boolean(fileUrl?.trim());
+      const hasFile = Boolean(file);
+
+      if (hasFile && hasUrl && file) {
+        // Preserve URL-based reader behavior and save selected file locally.
+        triggerLocalFileDownload(file);
+      } else if (file) {
+        await uploadAdminBookFile(created.productId, file);
+      }
+      adminFetch.refetch();
+      catalogState.refetch();
+      adminCategoriesState.refetch();
+      if (hasFile && hasUrl) {
+        setAdminActionError(
+          usedRetrySku
+            ? 'Book created with a regenerated SKU and URL. Selected file downloaded locally.'
+            : 'Book created with URL. Selected file downloaded locally.'
+        );
+      } else {
+        setAdminActionError(
+          usedRetrySku
+            ? 'Book created successfully with a regenerated SKU.'
+            : 'Book created successfully.'
+        );
+      }
+      setPage('admin');
+    } catch (e) {
+      setAdminActionError(e instanceof Error ? e.message : 'Failed to create book.');
+      throw e;
+    } finally {
+      setAdminBookSaving(false);
+    }
+  };
+
+  const handleAdminCreateCategory = () => {
+    setAdminActionError('');
+    void (async () => {
+      try {
+        const name = window.prompt('Category name');
+        if (!name) return;
+        const suggestedSlug = name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
+        const slug = (window.prompt('Category slug', suggestedSlug) ?? '').trim();
+        if (!slug) {
+          setAdminActionError('Slug is required.');
+          return;
+        }
+        await createAdminCategory({ name, slug });
+        adminCategoriesState.refetch();
+        setAdminActionError('Category created successfully.');
+      } catch (e) {
+        setAdminActionError(e instanceof Error ? e.message : 'Failed to create category.');
+      }
+    })();
+  };
+
+  const handleAdminCreatePlan = () => {
+    setAdminActionError('');
+    void (async () => {
+      try {
+        const planName = window.prompt('Plan name');
+        if (!planName) return;
+        const priceRaw = window.prompt('Plan price', '9.99') ?? '9.99';
+        const durationRaw = window.prompt('Duration (days)', '30') ?? '30';
+        const price = Number(priceRaw);
+        const durationDays = Number(durationRaw);
+        if (Number.isNaN(price) || Number.isNaN(durationDays) || durationDays < 1) {
+          setAdminActionError('Provide valid price and duration days.');
+          return;
+        }
+        await createAdminSubscriptionPlan({ planName, price, durationDays });
+        plansState.refetch();
+        setAdminActionError('Subscription plan created.');
+      } catch (e) {
+        setAdminActionError(e instanceof Error ? e.message : 'Failed to create subscription plan.');
+      }
+    })();
+  };
+
+  const handleAdminUpsertPublicLibrary = () => {
+    setAdminActionError('');
+    void (async () => {
+      try {
+        const productId = window.prompt('Product ID to publish in public library');
+        if (!productId) return;
+        await upsertAdminPublicLibrary({
+          productId,
+          visibility: 'PUBLIC',
+          editable: true,
+        });
+        adminPublicLibraryState.refetch();
+        catalogState.refetch();
+        setAdminActionError('Public library entry upserted.');
+      } catch (e) {
+        setAdminActionError(e instanceof Error ? e.message : 'Failed to upsert public library entry.');
+      }
+    })();
+  };
+
+  const handleAdminUpdateOrderStatus = () => {
+    setAdminActionError('');
+    void (async () => {
+      try {
+        const orderId = window.prompt('Order ID');
+        if (!orderId) return;
+        const status = window.prompt('New status', 'CONFIRMED') ?? 'CONFIRMED';
+        await updateAdminOrderStatus(orderId, status);
+        adminOrdersState.refetch();
+        setAdminActionError('Order status updated.');
+      } catch (e) {
+        setAdminActionError(e instanceof Error ? e.message : 'Failed to update order status.');
+      }
+    })();
+  };
+
+  const handleAdminUploadBookFile = (bookId: string) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.epub,application/pdf,application/epub+zip';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
       void (async () => {
         try {
-          for (const bookId of ids) {
-        adminCategoriesState.refetch();
-            await deleteAdminBook(bookId);
-          }
+          await uploadAdminBookFile(bookId, file);
           adminFetch.refetch();
           catalogState.refetch();
-          setAdminActionError(`Deleted ${ids.length} book(s).`);
-        } catch (e) {
-          // Roll back optimistic removal on error and resync with server state.
-          setOptimisticallyDeletedBookIds((prev) => {
-            const next = new Set(prev);
-            for (const id of ids) next.delete(id);
-            return next;
-          });
-          adminFetch.refetch();
           adminCategoriesState.refetch();
-          setAdminActionError(e instanceof Error ? e.message : `Failed to delete ${ids.length} book(s).`);
+          setAdminActionError('Book file uploaded.');
+        } catch (e) {
+          setAdminActionError(e instanceof Error ? e.message : 'Failed to upload book file.');
         }
       })();
     };
+    input.click();
+  };
 
-    // Scroll to top on page change
-    useEffect(() => {
-      window.scrollTo(0, 0);
-    }, [page]);
+  const handleAdminEditBook = (bookId: string) => {
+    setAdminActionError('');
+    setAdminEditingBookId(bookId);
+    setPage('admin-edit-book');
+  };
 
-    useEffect(() => {
-      if (initializing || isAuthenticated) return;
-      if (protectedPages.includes(page)) {
-        setPage('login');
+  const handleAdminSubmitEditBookForm = async (payload: {
+    categoryId: string;
+    title: string;
+    author: string;
+    sku: string;
+    format: string;
+    price: number;
+    contentType?: string;
+    status?: string;
+    description?: string;
+  }) => {
+    if (!adminEditingBookId) return;
+    setAdminActionError('');
+    setAdminBookEditSaving(true);
+    try {
+      await updateAdminBook(adminEditingBookId, payload);
+      adminFetch.refetch();
+      catalogState.refetch();
+      adminCategoriesState.refetch();
+      setAdminActionError('Book updated successfully.');
+      setPage('admin');
+      setAdminEditingBookId(null);
+    } catch (e) {
+      setAdminActionError(e instanceof Error ? e.message : 'Failed to update book.');
+      throw e;
+    } finally {
+      setAdminBookEditSaving(false);
+    }
+  };
+
+  const handleAdminDeleteFirstPublicLibraryRecord = () => {
+    setAdminActionError('');
+    void (async () => {
+      try {
+        const firstId = adminPublicLibraryState.data?.[0]?.publicLibraryId;
+        if (!firstId) {
+          setAdminActionError('No public library records to delete.');
+          return;
+        }
+        await deleteAdminPublicLibrary(firstId);
+        adminPublicLibraryState.refetch();
+        catalogState.refetch();
+        setAdminActionError('Deleted one public library record.');
+      } catch (e) {
+        setAdminActionError(e instanceof Error ? e.message : 'Failed to delete public library record.');
       }
-    }, [initializing, isAuthenticated, page, protectedPages]);
+    })();
+  };
 
-    const showNavbar = !['login', 'reader'].includes(page);
-    const showFooter = !['login', 'reader'].includes(page);
+  const handleAdminDeleteBooks = (bookIds: string[]) => {
+    const ids = bookIds.map((id) => String(id).trim()).filter(Boolean);
+    if (ids.length === 0) return;
 
-    return (
-      <div className="min-h-screen flex flex-col">
-        {showNavbar && <Navbar currentPage={page} setPage={navigateToPage} isAuthenticated={isAuthenticated} isAdmin={isAdminUser} onLogout={signOut} onSearch={(q) => { setSearchQuery(q); setCategoryFilter(''); navigateToPage('public-library'); }} />}
+    setAdminActionError('');
+    setOptimisticallyDeletedBookIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.add(id);
+      return next;
+    });
 
-        <main className="flex-grow pb-[5.75rem] md:pb-0">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={page}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-            >
-              {page === 'landing' && (
-                <LandingPage
-                  setPage={navigateToPage}
-                  onBeginReading={handleBeginReading}
-                  onViewDetails={handleViewLandingDetails}
-                  isAuthenticated={isAuthenticated}
-                  newReleases={newReleases}
-                  catalogTotal={catalogRows.length}
-                  categories={publicCategories}
-                  onBookClick={(book) => { navigateToPage('public-library'); }}
-                  onCategoryClick={(catId) => {
-                    const cat = publicCategories.find(c => c.categoryId === catId);
-                    if (cat) {
-                      setCategoryFilter(cat.name);
-                      setSearchQuery('');
-                      navigateToPage('public-library');
-                    }
-                  }}
+    void (async () => {
+      try {
+        for (const bookId of ids) {
+          adminCategoriesState.refetch();
+          await deleteAdminBook(bookId);
+        }
+        adminFetch.refetch();
+        catalogState.refetch();
+        setAdminActionError(`Deleted ${ids.length} book(s).`);
+      } catch (e) {
+        // Roll back optimistic removal on error and resync with server state.
+        setOptimisticallyDeletedBookIds((prev) => {
+          const next = new Set(prev);
+          for (const id of ids) next.delete(id);
+          return next;
+        });
+        adminFetch.refetch();
+        adminCategoriesState.refetch();
+        setAdminActionError(e instanceof Error ? e.message : `Failed to delete ${ids.length} book(s).`);
+      }
+    })();
+  };
+
+  // Scroll to top on page change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [page]);
+
+  useEffect(() => {
+    if (initializing || isAuthenticated) return;
+    if (protectedPages.includes(page)) {
+      setPage('login');
+    }
+  }, [initializing, isAuthenticated, page, protectedPages]);
+
+  const showNavbar = !['login', 'reader'].includes(page);
+  const showFooter = !['login', 'reader'].includes(page);
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {showNavbar && <Navbar currentPage={page} setPage={navigateToPage} isAuthenticated={isAuthenticated} isAdmin={isAdminUser} onLogout={signOut} onSearch={(q) => { setSearchQuery(q); setCategoryFilter(''); navigateToPage('public-library'); }} />}
+
+      <main className="flex-grow pb-[5.75rem] md:pb-0">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={page}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            {page === 'landing' && (
+              <LandingPage
+                setPage={navigateToPage}
+                onBeginReading={handleBeginReading}
+                onViewDetails={handleViewLandingDetails}
+                isAuthenticated={isAuthenticated}
+                newReleases={newReleases}
+                catalogTotal={catalogRows.length}
+                categories={publicCategories}
+                onBookClick={(book) => { navigateToPage('public-library'); }}
+                onCategoryClick={(catId) => {
+                  const cat = publicCategories.find(c => c.categoryId === catId);
+                  if (cat) {
+                    setCategoryFilter(cat.name);
+                    setSearchQuery('');
+                    navigateToPage('public-library');
+                  }
+                }}
+              />
+            )}
+            {page === 'personal-library' && (
+              isAdminUser ? (
+                <AdminUserStats orders={adminOrderRows} />
+              ) : (
+                <PersonalLibrary
+                  books={purchasedPersonalBooks}
+                  readingBook={readingBook}
+                  actionMessage={libraryActionMsg}
+                  activeTab={landingLibraryTab}
+                  onTabChange={setLandingLibraryTab}
+                  onOpenReader={handleOpenReader}
+                  onOpenCatalog={handleOpenCatalog}
+                  onSortChange={() => setLandingLibrarySort((current) => (current === 'Recent Activity' ? 'Progress' : 'Recent Activity'))}
+                  sortLabel={landingLibrarySort}
                 />
-              )}
-              {page === 'personal-library' && (
-                isAdminUser ? (
-                  <AdminUserStats orders={adminOrderRows} />
+              )
+            )}
+            {page === 'profile' && !isAdminUser && (
+              <UserProfilePage user={user} setPage={navigateToPage} booksCount={purchasedPersonalBooks.length} />
+            )}
+            {page === 'public-library' && (
+              <PublicLibrary
+                books={publicBooks}
+                totalCount={filteredCatalogBooks.length}
+                onAddToCart={handleAddToCart}
+                onRequestPurchaseAccess={handlePublicPurchaseRequired}
+                showAddToCart={!isAdminUser}
+                showPurchaseToView={!isAdminUser}
+                actionMessage={publicActionMsg}
+                pagination={{
+                  onPrev: publicPag.goPrev,
+                  onNext: publicPag.goNext,
+                  onSelectPage: (n) => publicPag.setPage(n - 1),
+                  currentPage1Based: publicPag.page + 1,
+                  totalPages: Math.max(1, publicPag.totalPages),
+                }}
+                viewMode={publicViewMode}
+                onToggleViewMode={handlePublicViewMode}
+                sortMode={publicSortMode}
+                onToggleSortMode={handlePublicSortToggle}
+                searchQuery={searchQuery}
+                onSearchChange={(q) => { setSearchQuery(q); setCategoryFilter(''); }}
+                categoryFilter={categoryFilter}
+                categories={publicCategories}
+                onCategoryClick={(name) => { setCategoryFilter(name); setSearchQuery(''); }}
+              />
+            )}
+            {page === 'cart' && (
+              <CartPage
+                cart={cart}
+                cartBooks={activeCartBooks}
+                onRemoveLine={handleRemoveCartLine}
+                onProceedCheckout={() => navigateToPage('checkout')}
+                onMoveToWishlist={handleWishlistMoveToWishlist}
+                onBrowseCatalog={handleOpenCatalog}
+                actionMessage={wishlistActionMsg}
+              />
+            )}
+            {page === 'wishlist' && (
+              <WishlistPage
+                savedBooks={savedForLater}
+                onMoveSavedToCart={handleMoveSavedToCart}
+                onRemoveFromWishlist={handleRemoveFromWishlist}
+                onBrowseCatalog={handleOpenCatalog}
+                actionMessage={wishlistActionMsg}
+              />
+            )}
+            {page === 'subscription' && (
+              <SubscriptionPage
+                plans={uiPlans}
+                status={subStatusState.data ?? null}
+                onSubscribe={handleSubscribePlan}
+                actionError={subscriptionActionError}
+                catalogTotal={catalogRows.length}
+                billingCycle={billingCycle}
+                onToggleBillingCycle={handleToggleBillingCycle}
+              />
+            )}
+            {page === 'checkout' && (
+              <CheckoutPage
+                setPage={setPage}
+                cartBooks={activeCartBooks}
+                subtotalLabel={formatMoney(checkoutSubtotalNum)}
+                onFinalize={handleFinalizeCheckout}
+                onDownloadInvoice={handleDownloadInvoice}
+                invoice={latestInvoice}
+                checkoutError={checkoutErr}
+              />
+            )}
+            {page === 'login' && (
+              <LoginPage
+                setPage={setPage}
+                onSignIn={signIn}
+                onSignInAdmin={signInAdmin}
+                onSignUp={signUp}
+                onSignInWithGoogle={signInWithGoogle}
+                googleAuthLoading={googleAuthLoading}
+              />
+            )}
+            {page === 'admin' && (
+              <AdminVaultPage
+                books={adminBooks}
+                onEditBook={handleAdminEditBook}
+                onUploadBookFile={handleAdminUploadBookFile}
+                onDeleteBooks={handleAdminDeleteBooks}
+                adminActionError={adminActionError}
+                pagination={{
+                  onPrev: adminPag.goPrev,
+                  onNext: adminPag.goNext,
+                  onSelectPage: (n) => adminPag.setPage(n - 1),
+                  currentPage1Based: adminPag.page + 1,
+                  totalPages: Math.max(1, adminPag.totalPages),
+                  totalElements: adminPag.totalElements,
+                }}
+              />
+            )}
+            {page === 'admin-add-book' && (
+              <AdminAddBookPage
+                categories={adminCategoriesState.data ?? []}
+                busy={adminBookSaving}
+                error={adminActionError}
+                onCancel={() => navigateToPage('admin')}
+                onRefreshCategories={async () => { adminCategoriesState.refetch(); }}
+                onSubmit={handleAdminSubmitBookForm}
+              />
+            )}
+            {page === 'admin-edit-book' && adminEditingBookId && adminFetch.data?.content?.find(b => b.productId === adminEditingBookId) && (
+              <AdminEditBookPage
+                book={adminFetch.data.content.find(b => b.productId === adminEditingBookId)!}
+                categories={adminCategoriesState.data ?? []}
+                busy={adminBookEditSaving}
+                error={adminActionError}
+                onCancel={() => navigateToPage('admin')}
+                onSubmit={handleAdminSubmitEditBookForm}
+              />
+            )}
+            {page === 'admin-contacts' && <AdminContactSubmissionsPage />}
+            {page === 'my-queries' && <UserContactSubmissionsPage />}
+            {page === 'reader' && (
+              <>
+                {purchasedPersonalBooks.length > 0 ? (
+                  <Suspense fallback={null}>
+                    <ReaderPageLazy setPage={setPage} readerTitle={readerTitle} readerBookId={readingBook?.id ?? purchasedPersonalBooks[0]?.id ?? ''} readerFormat={readerFormat} readerUrl={readerUrl} />
+                  </Suspense>
                 ) : (
-                  <PersonalLibrary
-                    books={purchasedPersonalBooks}
-                    readingBook={readingBook}
-                    actionMessage={libraryActionMsg}
-                    activeTab={landingLibraryTab}
-                    onTabChange={setLandingLibraryTab}
-                    onOpenReader={handleOpenReader}
-                    onOpenCatalog={handleOpenCatalog}
-                    onSortChange={() => setLandingLibrarySort((current) => (current === 'Recent Activity' ? 'Progress' : 'Recent Activity'))}
-                    sortLabel={landingLibrarySort}
-                  />
-                )
-              )}
-              {page === 'profile' && !isAdminUser && (
-                <UserProfilePage user={user} setPage={navigateToPage} booksCount={purchasedPersonalBooks.length} />
-              )}
-              {page === 'public-library' && (
-                <PublicLibrary
-                  books={publicBooks}
-                  totalCount={catalogRows.length}
-                  onAddToCart={handleAddToCart}
-                  onRequestPurchaseAccess={handlePublicPurchaseRequired}
-                  showAddToCart={!isAdminUser}
-                  showPurchaseToView={!isAdminUser}
-                  actionMessage={publicActionMsg}
-                  pagination={{
-                    onPrev: publicPag.goPrev,
-                    onNext: publicPag.goNext,
-                    onSelectPage: (n) => publicPag.setPage(n - 1),
-                    currentPage1Based: publicPag.page + 1,
-                    totalPages: Math.max(1, publicPag.totalPages),
-                  }}
-                  viewMode={publicViewMode}
-                  onToggleViewMode={handlePublicViewMode}
-                  sortMode={publicSortMode}
-                  onToggleSortMode={handlePublicSortToggle}
-                  searchQuery={searchQuery}
-                  onSearchChange={(q) => { setSearchQuery(q); setCategoryFilter(''); }}
-                  categoryFilter={categoryFilter}
-                  categories={publicCategories}
-                  onCategoryClick={(name) => { setCategoryFilter(name); setSearchQuery(''); }}
-                />
-              )}
-              {page === 'cart' && (
-                <CartPage
-                  cart={cart}
-                  cartBooks={activeCartBooks}
-                  onRemoveLine={handleRemoveCartLine}
-                  onProceedCheckout={() => navigateToPage('checkout')}
-                  onMoveToWishlist={handleWishlistMoveToWishlist}
-                  onBrowseCatalog={handleOpenCatalog}
-                  actionMessage={wishlistActionMsg}
-                />
-              )}
-              {page === 'wishlist' && (
-                <WishlistPage
-                  savedBooks={savedForLater}
-                  onMoveSavedToCart={handleMoveSavedToCart}
-                  onRemoveFromWishlist={handleRemoveFromWishlist}
-                  onBrowseCatalog={handleOpenCatalog}
-                  actionMessage={wishlistActionMsg}
-                />
-              )}
-              {page === 'subscription' && (
-                <SubscriptionPage
-                  plans={uiPlans}
-                  status={subStatusState.data ?? null}
-                  onSubscribe={handleSubscribePlan}
-                  actionError={subscriptionActionError}
-                  catalogTotal={catalogRows.length}
-                  billingCycle={billingCycle}
-                  onToggleBillingCycle={handleToggleBillingCycle}
-                />
-              )}
-              {page === 'checkout' && (
-                <CheckoutPage
-                  setPage={setPage}
-                  cartBooks={activeCartBooks}
-                  subtotalLabel={formatMoney(checkoutSubtotalNum)}
-                  onFinalize={handleFinalizeCheckout}
-                  onDownloadInvoice={handleDownloadInvoice}
-                  invoice={latestInvoice}
-                  checkoutError={checkoutErr}
-                />
-              )}
-              {page === 'login' && (
-                <LoginPage
-                  setPage={setPage}
-                  onSignIn={signIn}
-                  onSignInAdmin={signInAdmin}
-                  onSignUp={signUp}
-                  onSignInWithGoogle={signInWithGoogle}
-                  googleAuthLoading={googleAuthLoading}
-                />
-              )}
-              {page === 'admin' && (
-                <AdminVaultPage
-                  books={adminBooks}
-                  onEditBook={handleAdminEditBook}
-                  onUploadBookFile={handleAdminUploadBookFile}
-                  onDeleteBooks={handleAdminDeleteBooks}
-                  adminActionError={adminActionError}
-                  pagination={{
-                    onPrev: adminPag.goPrev,
-                    onNext: adminPag.goNext,
-                    onSelectPage: (n) => adminPag.setPage(n - 1),
-                    currentPage1Based: adminPag.page + 1,
-                    totalPages: Math.max(1, adminPag.totalPages),
-                    totalElements: adminPag.totalElements,
-                  }}
-                />
-              )}
-              {page === 'admin-add-book' && (
-                <AdminAddBookPage
-                  categories={adminCategoriesState.data ?? []}
-                  busy={adminBookSaving}
-                  error={adminActionError}
-                  onCancel={() => navigateToPage('admin')}
-                  onRefreshCategories={async () => { adminCategoriesState.refetch(); }}
-                  onSubmit={handleAdminSubmitBookForm}
-                />
-              )}
-              {page === 'admin-edit-book' && adminEditingBookId && adminFetch.data?.content?.find(b => b.productId === adminEditingBookId) && (
-                <AdminEditBookPage
-                  book={adminFetch.data.content.find(b => b.productId === adminEditingBookId)!}
-                  categories={adminCategoriesState.data ?? []}
-                  busy={adminBookEditSaving}
-                  error={adminActionError}
-                  onCancel={() => navigateToPage('admin')}
-                  onSubmit={handleAdminSubmitEditBookForm}
-                />
-              )}
-              {page === 'admin-contacts' && <AdminContactSubmissionsPage />}
-              {page === 'my-queries' && <UserContactSubmissionsPage />}
-              {page === 'reader' && (
-                <>
-                  {purchasedPersonalBooks.length > 0 ? (
-                    <Suspense fallback={null}>
-                      <ReaderPageLazy setPage={setPage} readerTitle={readerTitle} readerBookId={readingBook?.id ?? purchasedPersonalBooks[0]?.id ?? ''} readerFormat={readerFormat} readerUrl={readerUrl} />
-                    </Suspense>
-                  ) : (
-                    <div className="max-w-screen-md mx-auto px-8 py-24 space-y-6 text-center">
-                      <h1 className="font-headline text-5xl text-primary italic">Purchase required</h1>
-                      <p className="text-lg text-on-surface-variant">You need to buy a book before the reader can open.</p>
-                      <button
-                        type="button"
-                        className="primary-gradient text-on-primary px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs"
-                        onClick={() => setPage('public-library')}
-                      >
-                        Browse Public Library
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-              {page === 'terms-of-service' && <TermsOfServicePage setPage={navigateToPage} />}
-              {page === 'privacy-policy' && <PrivacyPolicyPage setPage={navigateToPage} />}
-              {page === 'archive-ethics' && <ArchiveEthicsPage setPage={navigateToPage} />}
-              {page === 'contact-support' && <ContactSupportPage setPage={navigateToPage} />}
-              {page === 'help-center' && <HelpCenterPage setPage={navigateToPage} />}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+                  <div className="max-w-screen-md mx-auto px-8 py-24 space-y-6 text-center">
+                    <h1 className="font-headline text-5xl text-primary italic">Purchase required</h1>
+                    <p className="text-lg text-on-surface-variant">You need to buy a book before the reader can open.</p>
+                    <button
+                      type="button"
+                      className="primary-gradient text-on-primary px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs"
+                      onClick={() => setPage('public-library')}
+                    >
+                      Browse Public Library
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {page === 'terms-of-service' && <TermsOfServicePage setPage={navigateToPage} />}
+            {page === 'privacy-policy' && <PrivacyPolicyPage setPage={navigateToPage} />}
+            {page === 'archive-ethics' && <ArchiveEthicsPage setPage={navigateToPage} />}
+            {page === 'contact-support' && <ContactSupportPage setPage={navigateToPage} />}
+            {page === 'help-center' && <HelpCenterPage setPage={navigateToPage} />}
+          </motion.div>
+        </AnimatePresence>
+      </main>
 
-        {showFooter && <Footer onNavigate={navigateToPage} isAuthenticated={isAuthenticated} />}
+      {showFooter && <Footer onNavigate={navigateToPage} isAuthenticated={isAuthenticated} />}
 
-        <FloatingMenu currentPage={page} onNavigate={navigateToPage} isAuthenticated={isAuthenticated} isAdmin={isAdminUser} />
+      <FloatingMenu currentPage={page} onNavigate={navigateToPage} isAuthenticated={isAuthenticated} isAdmin={isAdminUser} />
 
-        <Toast message={toastMsg} show={toastVisible} onClose={() => setToastVisible(false)} />
-      </div>
-    );
-  }
+      <Toast message={toastMsg} show={toastVisible} onClose={() => setToastVisible(false)} />
+    </div>
+  );
+}
 
