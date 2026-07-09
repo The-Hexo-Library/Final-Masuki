@@ -60,6 +60,8 @@ import {
   getPublicCategories,
   searchPublicLibrary,
   postCheckout,
+  postRazorpayCreateOrder,
+  postRazorpayVerifyPayment,
   postSubscribe,
   removeCartItem,
   upsertAdminPublicLibrary,
@@ -74,17 +76,20 @@ import {
   getMyContactSubmissions,
   getAdminContactSubmissions,
   markNotificationRead,
+  getPaymentQuote,
   type AdminOrderRow,
   type CategoryRow,
   type CartRow,
   type LibraryRow,
   type PagedResult,
+  type PaymentQuoteRow,
   type ProductRow,
   type SubscriptionStatusRow,
   type NotificationRow,
   type ContactSubmissionRow,
 } from './services/api';
 import { subscribeAppErrors } from './services/errorBus';
+import { loadRazorpayCheckoutScript } from './services/razorpay';
 import type { AppPage as Page } from './types/navigation';
 import FloatingMenu from './components/FloatingMenu';
 
@@ -2721,6 +2726,8 @@ const CheckoutPage = ({
   setPage,
   cartBooks,
   subtotalLabel,
+  paymentQuote,
+  paymentQuoteLoading,
   onFinalize,
   onDownloadInvoice,
   invoice,
@@ -2729,12 +2736,9 @@ const CheckoutPage = ({
   setPage: (p: Page) => void;
   cartBooks: Book[];
   subtotalLabel: string;
-  onFinalize: (payment: {
-    cardholderName: string;
-    cardNumber: string;
-    expiry: string;
-    cvv: string;
-  }) => Promise<void>;
+  paymentQuote?: PaymentQuoteRow | null;
+  paymentQuoteLoading?: boolean;
+  onFinalize: () => Promise<void>;
   onDownloadInvoice: () => void;
   invoice?: {
     invoiceNumber: string;
@@ -2745,18 +2749,12 @@ const CheckoutPage = ({
   } | null;
   checkoutError?: string;
 }) => {
-  const [cardholderName, setCardholderName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
+  const [paying, setPaying] = useState(false);
 
   const submitPayment = () => {
-    void onFinalize({
-      cardholderName,
-      cardNumber,
-      expiry,
-      cvv,
-    });
+    if (paying) return;
+    setPaying(true);
+    void onFinalize().finally(() => setPaying(false));
   };
 
   return (
@@ -2797,74 +2795,33 @@ const CheckoutPage = ({
               <div className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs font-bold">02</div>
               <h2 className="font-headline text-3xl text-primary italic">Secure Payment</h2>
             </div>
-            <div className="space-y-4">
-              <div className="p-6 rounded-xl border border-primary bg-white flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-5 h-5 rounded-full border-4 border-primary" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold text-primary">CREDIT OR DEBIT CARD</p>
-                    <p className="text-[10px] text-on-surface-variant">Visa, Mastercard, American Express</p>
-                  </div>
+            <div className="p-6 rounded-xl border border-primary bg-white flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-5 h-5 rounded-full border-4 border-primary" />
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-primary">RAZORPAY SECURE CHECKOUT</p>
+                  <p className="text-[10px] text-on-surface-variant">Cards, UPI, net banking &amp; wallets</p>
                 </div>
-                <LayoutGrid className="w-5 h-5 text-on-surface-variant" />
               </div>
-              <div className="p-6 rounded-xl border border-outline-variant/30 bg-surface-container-low flex items-center justify-between opacity-50">
-                <div className="flex items-center gap-4">
-                  <div className="w-5 h-5 rounded-full border-2 border-outline-variant" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold text-on-surface-variant">PAYPAL</p>
-                    <p className="text-[10px] text-on-surface-variant">Direct wallet transfer</p>
-                  </div>
-                </div>
-                <LayoutGrid className="w-5 h-5 text-on-surface-variant" />
-              </div>
+              <LayoutGrid className="w-5 h-5 text-on-surface-variant" />
             </div>
-            <div className="bg-surface-container-low p-8 rounded-xl space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Cardholder Name</label>
-                <input
-                  type="text"
-                  value={cardholderName}
-                  onChange={(e) => setCardholderName(e.target.value)}
-                  placeholder="Name on card"
-                  className="w-full bg-white border-none rounded-lg px-4 py-3 text-sm outline-none"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Card Number</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value)}
-                    placeholder="0000 0000 0000 0000"
-                    className="w-full bg-white border-none rounded-lg px-4 py-3 text-sm outline-none"
-                  />
-                  <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+            <div className="bg-surface-container-low p-8 rounded-xl space-y-3">
+              <p className="text-sm text-on-surface">
+                Payments are processed by Razorpay. When you continue, a secure Razorpay window opens to
+                collect your card or UPI details &mdash; they never touch our servers.
+              </p>
+              {paymentQuoteLoading ? (
+                <p className="text-sm text-on-surface-variant">Loading live USD to INR pricing...</p>
+              ) : paymentQuote ? (
+                <div className="space-y-2 text-sm text-on-surface">
+                  <p><span className="font-semibold">Book Total:</span> {formatMoney(paymentQuote.usdAmount, 'USD')}</p>
+                  <p><span className="font-semibold">Exchange Rate:</span> 1 USD = {formatMoney(paymentQuote.exchangeRate, 'INR')}</p>
+                  <p><span className="font-semibold">Amount Charged:</span> {formatMoney(paymentQuote.convertedAmount, 'INR')}</p>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Expiry Date</label>
-                  <input
-                    type="text"
-                    value={expiry}
-                    onChange={(e) => setExpiry(e.target.value)}
-                    placeholder="MM / YY"
-                    className="w-full bg-white border-none rounded-lg px-4 py-3 text-sm outline-none"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">CVV</label>
-                  <input
-                    type="text"
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value)}
-                    placeholder="123"
-                    className="w-full bg-white border-none rounded-lg px-4 py-3 text-sm outline-none"
-                  />
-                </div>
-              </div>
+              ) : null}
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                Test mode card: 4111 1111 1111 1111 &middot; any future expiry &middot; any CVV
+              </p>
             </div>
           </section>
         </div>
@@ -2900,8 +2857,8 @@ const CheckoutPage = ({
                 <span className="font-headline text-5xl text-primary italic">{subtotalLabel}</span>
               </div>
             </div>
-            <button type="button" className="w-full primary-gradient text-on-primary py-5 rounded-xl font-bold uppercase tracking-widest text-xs shadow-xl active:scale-[0.98] transition-transform" onClick={submitPayment}>
-              FINALIZE & DOWNLOAD
+            <button type="button" disabled={paying || paymentQuoteLoading || !paymentQuote} className="w-full primary-gradient text-on-primary py-5 rounded-xl font-bold uppercase tracking-widest text-xs shadow-xl active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed" onClick={submitPayment}>
+              {paying ? 'OPENING RAZORPAY\u2026' : 'PAY SECURELY WITH RAZORPAY'}
             </button>
             {invoice ? (
               <div className="bg-white rounded-xl border border-outline-variant/20 p-5 space-y-2">
@@ -3037,42 +2994,7 @@ const LoginPage = ({
             </button>
           </div>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-outline-variant/30" /></div>
-            <div className="relative flex justify-center text-xs uppercase tracking-widest text-on-surface-variant">
-              <span className="bg-white px-4">SECURE AUTHENTICATION</span>
-            </div>
-          </div>
-
-          {/* Google Sign-In Button */}
-          <button
-            type="button"
-            disabled={googleAuthLoading || busy}
-            onClick={async () => {
-              setFormError('');
-              try {
-                await onSignInWithGoogle();
-              } catch (er) {
-                setFormError(er instanceof Error ? er.message : 'Google sign-in failed.');
-              }
-            }}
-            className="w-full flex items-center justify-center gap-3 border border-outline-variant/30 bg-white hover:bg-surface-container-low rounded-xl py-3.5 text-sm font-semibold text-on-surface transition-all duration-200 hover:shadow-md active:scale-[0.98] disabled:opacity-60"
-          >
-            <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-            </svg>
-            {googleAuthLoading ? 'Redirecting to Google...' : 'Continue with Google'}
-          </button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-outline-variant/30" /></div>
-            <div className="relative flex justify-center text-xs uppercase tracking-widest text-on-surface-variant">
-              <span className="bg-white px-4">OR USE EMAIL</span>
-            </div>
-          </div>
+          
           <form
             className="space-y-6"
             onSubmit={(e) => {
@@ -4066,6 +3988,8 @@ export default function App() {
   });
   const [adminBookSaving, setAdminBookSaving] = useState(false);
   const [checkoutErr, setCheckoutErr] = useState('');
+  const [paymentQuote, setPaymentQuote] = useState<PaymentQuoteRow | null>(null);
+  const [paymentQuoteLoading, setPaymentQuoteLoading] = useState(false);
   const [landingLibraryTab, setLandingLibraryTab] = useState<'reading' | 'collections'>('reading');
   const [landingLibrarySort, setLandingLibrarySort] = useState('Recent Activity');
   const [publicSortMode, setPublicSortMode] = useState<'latest' | 'title'>('latest');
@@ -4492,6 +4416,42 @@ export default function App() {
     [activeCartBooks]
   );
 
+  const refreshRazorpayQuote = async (): Promise<PaymentQuoteRow> => {
+    setPaymentQuoteLoading(true);
+    try {
+      const quote = await getPaymentQuote('razorpay');
+      setPaymentQuote(quote);
+      return quote;
+    } finally {
+      setPaymentQuoteLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (page !== 'checkout' || !user) {
+      setPaymentQuote(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const quote = await refreshRazorpayQuote();
+        if (cancelled) return;
+        setCheckoutErr('');
+      } catch (e) {
+        if (cancelled) return;
+        setPaymentQuote(null);
+        setCheckoutErr(e instanceof Error ? e.message : 'Unable to load a live payment quote.');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page, user, checkoutSubtotalNum]);
+
   const uiPlans = useMemo(
     () => (plansState.data ?? []).map(subscriptionRowToUiPlan),
     [plansState.data]
@@ -4749,7 +4709,7 @@ export default function App() {
         // Show appropriate message based on whether it was already in cart
         const msg = isAlreadyInCart ? 'Item already in cart.' : 'Item added to cart.';
         setPublicActionMsg(msg);
-        showToast(isAlreadyInCart ? `"${book.title}" is already in your cart` : `"${book.title}" added to cart âœ“`);
+        showToast(isAlreadyInCart ? `"${book.title}" is already in your cart` : `"${book.title}" added to cart`);
         // Auto-clear success message after 3 seconds
         setTimeout(() => setPublicActionMsg(''), 3000);
       } catch (e) {
@@ -4781,54 +4741,142 @@ export default function App() {
     })();
   };
 
-  const handleFinalizeCheckout = async (payment: {
-    cardholderName: string;
-    cardNumber: string;
-    expiry: string;
-    cvv: string;
-  }) => {
+  const handleFinalizeCheckout = async () => {
     setCheckoutErr('');
-    const numberDigits = payment.cardNumber.replace(/\D+/g, '');
-    if (!payment.cardholderName.trim() || numberDigits.length < 12 || !payment.expiry.trim() || payment.cvv.trim().length < 3) {
-      setCheckoutErr('Enter valid debit/credit card details to continue.');
+
+    let quote: PaymentQuoteRow;
+    try {
+      quote = await refreshRazorpayQuote();
+    } catch (e) {
+      setCheckoutErr(e instanceof Error ? e.message : 'Unable to load a live payment quote.');
+      return;
+    }
+
+    const amountPaise = quote.amountPaise;
+    if (!Number.isFinite(amountPaise) || amountPaise < 100) {
+      setCheckoutErr('Your cart total is too low to start a payment.');
       return;
     }
 
     try {
-      const result = (await postCheckout({
-        gateway: 'demo',
-        paymentMethod: 'card',
-        currency: 'USD',
-      })) as {
-        order?: { orderId?: string; totalAmount?: number | string; items?: Array<{ totalPrice?: number | string }> };
-        payment?: { paymentId?: string; amount?: number | string };
-      };
-
-      const orderId = String(result?.order?.orderId ?? '').trim() || `ORD-${Date.now()}`;
-      const lineItems = Array.isArray(result?.order?.items) ? result.order.items : [];
-      const lineItemTotal = lineItems.reduce((sum, item) => sum + Number(item.totalPrice ?? 0), 0);
-      const backendTotalRaw = result?.order?.totalAmount ?? result?.payment?.amount;
-      const backendTotal = typeof backendTotalRaw === 'number' ? backendTotalRaw : Number(backendTotalRaw ?? 0);
-      const totalAmount = Number.isFinite(lineItemTotal) && lineItemTotal > 0 ? lineItemTotal : backendTotal;
-      const last4 = numberDigits.slice(-4);
-
-      setLatestInvoice({
-        invoiceNumber: `INV-${Date.now()}`,
-        orderId,
-        amountLabel: formatMoney(Number.isFinite(totalAmount) ? totalAmount : 0),
-        dateLabel: new Date().toLocaleString(),
-        paymentLabel: `Card ending ${last4 || 'XXXX'}`,
-      });
-
-      libState.refetch();
-      adminOrdersState.refetch();
-      window.dispatchEvent(new CustomEvent(ORDER_ACTIVITY_EVENT));
-      setLibraryActionMsg('Checkout successful. Purchased books are now in your private library.');
-      setPage('personal-library');
-      cartState.refetch();
-    } catch (e) {
-      setCheckoutErr(e instanceof Error ? e.message : 'Checkout failed.');
+      await loadRazorpayCheckoutScript();
+    } catch {
+      setCheckoutErr('Unable to load the payment gateway. Check your connection and retry.');
+      return;
     }
+    if (typeof window === 'undefined' || !window.Razorpay) {
+      setCheckoutErr('Unable to load the payment gateway. Please retry.');
+      return;
+    }
+
+    let rzpOrder: { order_id: string; amount: number; currency: string; key_id: string };
+    try {
+      rzpOrder = await postRazorpayCreateOrder({
+        amountPaise,
+        receipt: `rcpt_${Date.now()}`,
+        customerEmail: user?.email,
+      });
+    } catch (e) {
+      setCheckoutErr(e instanceof Error ? e.message : 'Could not start the payment.');
+      return;
+    }
+
+    const customerName = [user?.firstName, user?.lastName]
+      .filter((part) => Boolean(part && part.trim()))
+      .join(' ')
+      .trim();
+
+    const completePurchase = async (response: {
+      razorpay_payment_id: string;
+      razorpay_order_id: string;
+      razorpay_signature: string;
+    }) => {
+      try {
+        // Convert the cart into an internal order only after the payment succeeds,
+        // so a cancelled payment never empties the cart.
+        const checkoutResult = (await postCheckout({
+          gateway: 'razorpay',
+          paymentMethod: 'card',
+        })) as {
+          order?: { orderId?: string; totalAmount?: number | string; items?: Array<{ totalPrice?: number | string }> };
+          payment?: { amount?: number | string };
+        };
+
+        const internalOrderId = String(checkoutResult?.order?.orderId ?? '').trim();
+        if (!internalOrderId) {
+          setCheckoutErr(
+            `Payment succeeded but the order could not be created. Keep this payment id for support: ${response.razorpay_payment_id}`
+          );
+          return;
+        }
+
+        // Verify the signature server-side, then unlock the purchased books.
+        await postRazorpayVerifyPayment({
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          internalOrderId,
+        });
+
+        const lineItems = Array.isArray(checkoutResult?.order?.items) ? checkoutResult.order!.items! : [];
+        const lineItemTotal = lineItems.reduce((sum, item) => sum + Number(item.totalPrice ?? 0), 0);
+        const backendTotalRaw = checkoutResult?.order?.totalAmount ?? checkoutResult?.payment?.amount;
+        const backendTotal = typeof backendTotalRaw === 'number' ? backendTotalRaw : Number(backendTotalRaw ?? 0);
+        const totalAmount = Number.isFinite(lineItemTotal) && lineItemTotal > 0 ? lineItemTotal : backendTotal;
+        const invoiceCurrency = checkoutResult?.order?.currency ?? quote?.currency ?? 'USD';
+
+        setLatestInvoice({
+          invoiceNumber: `INV-${Date.now()}`,
+          orderId: internalOrderId,
+          amountLabel: formatMoney(Number.isFinite(totalAmount) ? totalAmount : 0, invoiceCurrency),
+          dateLabel: new Date().toLocaleString(),
+          paymentLabel: `Razorpay \u2022 ${response.razorpay_payment_id}`,
+        });
+
+        libState.refetch();
+        adminOrdersState.refetch();
+        window.dispatchEvent(new CustomEvent(ORDER_ACTIVITY_EVENT));
+        setLibraryActionMsg('Payment successful. Purchased books are now in your private library.');
+        setPage('personal-library');
+        cartState.refetch();
+      } catch (e) {
+        setCheckoutErr(
+          e instanceof Error
+            ? e.message
+            : 'We could not confirm your payment. If you were charged, contact support.'
+        );
+      }
+    };
+
+    const rzp = new window.Razorpay({
+      key: rzpOrder.key_id,
+      amount: rzpOrder.amount,
+      currency: rzpOrder.currency,
+      name: 'Masuki Books',
+      description: 'Digital library purchase',
+      order_id: rzpOrder.order_id,
+      prefill: {
+        name: customerName || undefined,
+        email: user?.email || undefined,
+      },
+      theme: { color: '#6750A4' },
+      modal: {
+        ondismiss: () => setCheckoutErr('Payment was cancelled before completion.'),
+      },
+      handler: (response: {
+        razorpay_payment_id: string;
+        razorpay_order_id: string;
+        razorpay_signature: string;
+      }) => {
+        void completePurchase(response);
+      },
+    });
+
+    rzp.on('payment.failed', (resp: { error?: { description?: string } }) => {
+      setCheckoutErr(resp?.error?.description || 'Payment failed. Please try again.');
+    });
+
+    rzp.open();
   };
 
   const handleDownloadInvoice = () => {
@@ -4853,12 +4901,37 @@ export default function App() {
   };
 
   const handlePublicPurchaseRequired = (book: Book) => {
-    if ((user?.role ?? '').toUpperCase() === 'ADMIN') {
-      setPublicActionMsg('Admin accounts cannot purchase titles from the public library.');
-      return;
-    }
-    const title = book.title || 'This title';
-    setPublicActionMsg(`${title} requires purchase before viewing. Add it to cart and complete checkout.`);
+    setPublicActionMsg('');
+    void (async () => {
+      if (!user) {
+        setPublicActionMsg('Sign in to purchase books.');
+        navigateToPage('login');
+        return;
+      }
+      if ((user.role ?? '').toUpperCase() === 'ADMIN') {
+        setPublicActionMsg('Admin accounts cannot purchase titles from the public library.');
+        return;
+      }
+      const productId = book.productId || book.id;
+      if (!productId) {
+        setPublicActionMsg('This title is not available for purchase yet.');
+        return;
+      }
+      try {
+        const isAlreadyInCart = (cartState.data?.items || []).some(
+          (item) => item.productId === productId
+        );
+        if (!isAlreadyInCart) {
+          await addCartItem(productId, 1);
+          // Let the cart state settle before navigating.
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        cartState.refetch();
+        navigateToPage('cart');
+      } catch (e) {
+        setPublicActionMsg(e instanceof Error ? e.message : 'Unable to start the purchase.');
+      }
+    })();
   };
 
   const handleAdminCreateBook = () => {
@@ -5254,6 +5327,8 @@ export default function App() {
                 setPage={setPage}
                 cartBooks={activeCartBooks}
                 subtotalLabel={formatMoney(checkoutSubtotalNum)}
+                paymentQuote={paymentQuote}
+                paymentQuoteLoading={paymentQuoteLoading}
                 onFinalize={handleFinalizeCheckout}
                 onDownloadInvoice={handleDownloadInvoice}
                 invoice={latestInvoice}

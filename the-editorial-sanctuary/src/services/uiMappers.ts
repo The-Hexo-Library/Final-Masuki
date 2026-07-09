@@ -31,15 +31,16 @@ export interface UiBook {
   ref?: string;
 }
 
-export function formatMoney(amount: number | undefined): string {
+export function formatMoney(amount: number | undefined, currency = "USD"): string {
   if (amount == null || Number.isNaN(Number(amount))) return "";
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency,
     }).format(Number(amount));
   } catch {
-    return `$${Number(amount).toFixed(2)}`;
+    const prefix = currency === "INR" ? "₹" : "$";
+    return `${prefix}${Number(amount).toFixed(2)}`;
   }
 }
 
