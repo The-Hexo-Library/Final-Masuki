@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: masuki-books-backend
+    env: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PORT
+        value: 8081
+      - key: FRONTEND_URL
+        value: https://masuki-books-frontend.onrender.com
+
+  - type: static
+    name: masuki-books-frontend
+    rootDir: the-editorial-sanctuary
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    autoDeploy: true
+    envVars:
+      - key: VITE_API_URL
+        value: https://masuki-books-backend.onrender.com
